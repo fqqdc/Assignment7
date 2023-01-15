@@ -131,28 +131,27 @@ namespace Structs
             float emit_area_sum = 0;
             for (int i = 0; i < meshIdxes.IntLength; ++i)
             {
-                var k = meshIdxes[i];
-                var idxMaterial = nodes[k].Material;
+                var meshIdx = meshIdxes[i];
+                var idxMaterial = nodes[meshIdx].Material;
                 if (idxMaterial != -1 && bvh.Materials[idxMaterial].HasEmission())
                 {
-                    emit_area_sum += nodes[k].Area;
+                    emit_area_sum += nodes[meshIdx].Area;
                 }
             }
             float p = rng.NextFloat() * emit_area_sum;
             emit_area_sum = 0;
             for (int i = 0; i < meshIdxes.IntLength; ++i)
             {
-                var k = meshIdxes[i];
-                var idxMaterial = nodes[k].Material;
+                var meshIdx = meshIdxes[i];
+                var idxMaterial = nodes[meshIdx].Material;
                 if (idxMaterial != -1 && bvh.Materials[idxMaterial].HasEmission())
                 {
-                    emit_area_sum += nodes[k].Area;
+                    emit_area_sum += nodes[meshIdx].Area;
                     if (p <= emit_area_sum)
                     {
-                        bvh.Sample(ref rng, k, out pos, out pdf);
-                        //objects[k].Sample(ref rng, out pos, out pdf);
-                        if (nodes[k].Material != -1)
-                            pos.Emit = bvh.Materials[nodes[k].Material].Emission;
+                        bvh.Sample(ref rng, meshIdx, out pos, out pdf);
+                        if (nodes[meshIdx].Material != -1)
+                            pos.Emit = bvh.Materials[nodes[meshIdx].Material].Emission;
                         break;
                     }
                 }

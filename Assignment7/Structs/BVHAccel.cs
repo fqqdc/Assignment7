@@ -94,9 +94,6 @@ namespace Structs
                     idxNode = node.Left;
                 else idxNode = node.Right;
             }
-            
-            //if (p < Nodes[node.Left].Area) GetSample(ref rng, Nodes[node.Left], p, out pos, out pdf);
-            //else GetSample(ref rng, Nodes[node.Right], p - Nodes[node.Left].Area, out pos, out pdf);
         }
 
         public readonly void Sample(ref Structs.Random rng, int nodeIndex, out Intersection pos, out float pdf)
