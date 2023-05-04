@@ -107,41 +107,43 @@ namespace Assignment7
                 96, 96, PixelFormats.Bgr24, null);
             var updateTask = Task.Run(UpdateProgressTask);
             //data = await Task.Run(() => renderer.Render(scene, 2)); //单线程 像素采样率x，每个像素采样x^2次
-            //data = await Task.Run(() => renderer.RenderParallel(scene, 4)); //多线程 像素采样率x，每个像素采样x^2次
+            //data = await Task.Run(() => renderer.RenderParallel(scene, 8)); //多线程 像素采样率x，每个像素采样x^2次
             //data = await Task.Run(() => renderer.RenderGPU(scene, 8, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
-
-            //{
-            //    int ssLevel = 4;
-            //    Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
-            //    for (int i = 0; i < ssLevel * ssLevel; i++)
-            //    {
-            //        data = await Task.Run(() => renderer.RenderSingleStepByFrame(scene, framebuffer, i));
-            //        wb.WritePixels(new(0, 0, scene.Width, scene.Height),
-            //            data, scene.Width * 3, 0);
-            //        image.Source = wb;
-            //        Global.UpdateProgress((i + 1) / (float)(ssLevel * ssLevel));
-            //    }
-            //    Global.UpdateProgress(1);
-            //    await updateTask;
-            //}
 
             {
                 int ssLevel = 16;
-                data = new byte[scene.Width * scene.Height * 3];
-                var order = Enumerable.Range(0, scene.Width * scene.Height).ToArray();
-                RandomSort(order);
-                for (int i = 0; i < order.Length; i++)
+                Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
+                for (int i = 0; i < ssLevel * ssLevel; i++)
                 {
-                    data = await Task.Run(() => renderer.RenderSingleStepByPixel(scene, data, ssLevel,order, ref i));
+                    data = await Task.Run(() => renderer.RenderSingleStepByFrame(scene, ssLevel, framebuffer, i));
                     wb.WritePixels(new(0, 0, scene.Width, scene.Height),
                         data, scene.Width * 3, 0);
                     image.Source = wb;
-                    Global.UpdateProgress((i + 1) / (float)order.Length);
+                    Global.UpdateProgress((i + 1) / (float)(ssLevel * ssLevel));
                 }
                 Global.UpdateProgress(1);
                 await updateTask;
             }
 
+            //{
+            //    int ssLevel = 8;
+            //    data = new byte[scene.Width * scene.Height * 3];
+            //    var order = Enumerable.Range(0, scene.Width * scene.Height).ToArray();
+            //    RandomSort(order);
+            //    for (int i = 0; i < order.Length; i++)
+            //    {
+            //        data = await Task.Run(() => renderer.RenderSingleStepByPixel(scene, data, ssLevel, order, ref i));
+            //        wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+            //            data, scene.Width * 3, 0);
+            //        image.Source = wb;
+            //        Global.UpdateProgress((i + 1) / (float)order.Length);
+            //    }
+            //    Global.UpdateProgress(1);
+            //    await updateTask;
+            //}
+
+            wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+                        data, scene.Width * 3, 0);
             image.Source = wb;
             SaveImage(wb);
             progressBarViewer.Visibility = Visibility.Collapsed;
@@ -149,7 +151,7 @@ namespace Assignment7
         }
 
         // Change the definition here to change resolution
-        Scene scene = new(540, 540) // 分辨率
+        Scene scene = new(512, 512) // 分辨率
         {
             //RussianRoulette = .8f, // 光线反射概率
             ExpectedTime = 5, // 光线反射次数期望

@@ -95,7 +95,7 @@ namespace Assignment7
             return colorDate;
         }
 
-        public byte[] RenderSingleStepByFrame(Scene scene, Vector3f[] framebuffer, int nStep)
+        public byte[] RenderSingleStepByFrame(Scene scene, int ssLevel, Vector3f[] framebuffer, int nStep)
         {
             Debug.Assert(framebuffer.Length == scene.Width * scene.Height);
 
@@ -113,7 +113,10 @@ namespace Assignment7
                     int i = m % scene.Width;
                     int j = m / scene.Width;
 
-                    var (x, y) = (i + 0.5f, j + 0.5f);
+                    int subIndex = nStep;
+
+                    var (x, y) = CalcSubXY(i, j, subIndex, ssLevel);
+                    //var (x, y) = (i + 0.5f, j + 0.5f);
 
                     // generate primary ray direction
                     x = x * 2f / scene.Width - 1;
