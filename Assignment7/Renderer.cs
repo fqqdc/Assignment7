@@ -9,6 +9,8 @@ using Vector3f = System.Numerics.Vector3;
 using System.Linq;
 using Structs;
 using ILGPU.Algorithms;
+using System.Diagnostics;
+using System.Threading;
 
 namespace Assignment7
 {
@@ -91,6 +93,127 @@ namespace Assignment7
 
             Global.UpdateProgress(1);
             return colorDate;
+        }
+
+        public byte[] RenderSingleStepByFrame(Scene scene, Vector3f[] framebuffer, int nStep)
+        {
+            Debug.Assert(framebuffer.Length == scene.Width * scene.Height);
+
+            float scale = MathF.Tan(deg2rad((float)scene.Fov * 0.5f));
+            float imageAspectRatio = scene.Width / (float)scene.Height;
+
+            // Use this variable as the eye position to start your rays.
+            Vector3f eye_pos = new(278, 273, -800);
+
+            var part = Partitioner.Create(0, scene.Width * scene.Height, scene.Width * scene.Height / Environment.ProcessorCount);
+            var plr = Parallel.ForEach(part, range =>
+            {
+                for (int m = range.Item1; m < range.Item2; m++)
+                {
+                    int i = m % scene.Width;
+                    int j = m / scene.Width;
+
+                    var (x, y) = (i + 0.5f, j + 0.5f);
+
+                    // generate primary ray direction
+                    x = x * 2f / scene.Width - 1;
+                    x *= scale * imageAspectRatio;
+                    y = y * -2f / scene.Height + 1;
+                    y *= scale;
+                    // TODO: Find the x and y positions of the current pixel to get the direction
+                    // vector that passes through it.
+                    // Also, don't forget to multiply both of them with the variable *scale*, and
+                    // x (horizontal) variable with the *imageAspectRatio*            
+
+                    // Don't forget to normalize this direction!
+                    Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
+
+                    var _v = scene.CastRay(new(eye_pos, dir), 0);
+                    framebuffer[m] += Vector3f.Clamp(_v, Vector3f.Zero, Vector3f.One);
+                }
+            });
+
+            byte[] colorDate = new byte[scene.Width * scene.Height * 3];
+            Parallel.ForEach(part, range =>
+            {
+
+                for (int index = range.Item1; index < range.Item2; index++)
+                {
+                    var _v = framebuffer[index];
+                    var v = _v / (nStep + 1);
+
+                    colorDate[index * 3 + 2] = (byte)(255 * v.X); //R
+                    colorDate[index * 3 + 1] = (byte)(255 * v.Y); //G
+                    colorDate[index * 3 + 0] = (byte)(255 * v.Z); //B
+                }
+            });
+
+            return colorDate;
+        }
+
+        public byte[] RenderSingleStepByPixel(Scene scene, byte[] colorData, int ssLevel, int[] order, ref int indexOrder)
+        {
+            Debug.Assert(colorData.Length == scene.Width * scene.Height * 3);
+            Debug.Assert(order.Length == scene.Width * scene.Height);
+
+            float scale = MathF.Tan(deg2rad((float)scene.Fov * 0.5f));
+            float imageAspectRatio = scene.Width / (float)scene.Height;
+
+            // Use this variable as the eye position to start your rays.
+            Vector3f eye_pos = new(278, 273, -800);
+
+            var part = Partitioner.Create(0, ssLevel * ssLevel, ssLevel * ssLevel / Environment.ProcessorCount);
+
+            Vector3f[] pixelbuffer = new Vector3f[ssLevel * ssLevel];
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            for (; indexOrder < order.Length; indexOrder++)
+            {
+                int index = order[indexOrder];
+                var plr = Parallel.ForEach(part, range =>
+                {
+                    for (int m = range.Item1; m < range.Item2; m++)
+                    {
+                        int i = index % scene.Width;
+                        int j = index / scene.Width;
+                        int subIndex = m;
+
+                        var (x, y) = CalcSubXY(i, j, subIndex, ssLevel);
+                        //var (x, y) = (i + 0.5f, j + 0.5f);
+
+                        // generate primary ray direction
+                        x = x * 2f / scene.Width - 1;
+                        x *= scale * imageAspectRatio;
+                        y = y * -2f / scene.Height + 1;
+                        y *= scale;
+                        // TODO: Find the x and y positions of the current pixel to get the direction
+                        // vector that passes through it.
+                        // Also, don't forget to multiply both of them with the variable *scale*, and
+                        // x (horizontal) variable with the *imageAspectRatio*            
+
+                        // Don't forget to normalize this direction!
+                        Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
+
+                        pixelbuffer[subIndex] = scene.CastRay(new(eye_pos, dir), 0);
+                    }
+                });
+
+                Vector3f v = Vector3f.Zero;
+                for (int i = 0; i < ssLevel * ssLevel; i++)
+                {
+                    v += Vector3f.Clamp(pixelbuffer[i], Vector3f.Zero, Vector3f.One);
+                }
+                v /= (ssLevel * ssLevel);
+
+                colorData[index * 3 + 2] = (byte)(255 * v.X); //R
+                colorData[index * 3 + 1] = (byte)(255 * v.Y); //G
+                colorData[index * 3 + 0] = (byte)(255 * v.Z); //B
+
+                if (stopwatch.ElapsedMilliseconds > 1000)
+                    break;
+            }
+
+            return colorData;
         }
 
         public byte[] RenderParallel(Scene scene, int ssLevel = 1)

@@ -8,6 +8,10 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Vector3f = System.Numerics.Vector3;
 using System.Threading;
+using System.Linq;
+using AForge.Imaging.Filters;
+using System.Drawing;
+using System.IO;
 
 namespace Assignment7
 {
@@ -24,8 +28,72 @@ namespace Assignment7
             Loaded += MainWindow_Loaded;
         }
 
+        void RandomSort(int[] array)
+        {
+            Random random = new Random();
+            int last = array.Length - 1;
+            for (int i = 0; i < array.Length; i++)
+            {
+                int randomIndex = random.Next(array.Length);
+                int temp = array[last];
+                array[last] = array[randomIndex];
+                array[randomIndex] = temp;
+                last--;//位置改变
+            }
+        }
+
+        // 去噪
+        public static ImageSource MedianFilter(ImageSource inputImage, int filterSize)
+        {
+            var bitmap = ImageSourceToBitmap(inputImage);
+            if (bitmap == null) throw new NullReferenceException();
+
+            Median filter = new Median(filterSize);
+            Bitmap bitmapApply = filter.Apply(bitmap);
+
+
+            return BitmapToImageSource(bitmapApply);
+        }
+
+        // 将System.Drawing.Bitmap对象转换为System.Windows.Controls.ImageSource对象
+        public static BitmapImage BitmapToImageSource(Bitmap bitmap)
+        {
+            MemoryStream memoryStream = new MemoryStream();
+            bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
+
+            BitmapImage bitmapImage = new BitmapImage();
+            bitmapImage.BeginInit();
+            bitmapImage.StreamSource = new MemoryStream(memoryStream.ToArray());
+            bitmapImage.EndInit();
+
+            return bitmapImage;
+        }
+
+        // 将System.Windows.Controls.ImageSource对象转换为System.Drawing.Bitmap对象
+        public static Bitmap? ImageSourceToBitmap(ImageSource imageSource)
+        {
+            Bitmap? bitmap = null;
+
+            if (imageSource is BitmapSource bitmapSource)
+            {
+                using (MemoryStream memoryStream = new MemoryStream())
+                {
+                    BitmapEncoder encoder = new BmpBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+                    encoder.Save(memoryStream);
+
+                    bitmap = new Bitmap(memoryStream);
+                }
+            }
+
+            return bitmap;
+        }
+
+
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            WindowState = WindowState.Maximized;
+
             using var threadRandom = new ThreadLocal<Random>();
             Global.RandomGenerator = () => threadRandom.Value ?? (threadRandom.Value = new());
 
@@ -40,13 +108,42 @@ namespace Assignment7
             var updateTask = Task.Run(UpdateProgressTask);
             //data = await Task.Run(() => renderer.Render(scene, 2)); //单线程 像素采样率x，每个像素采样x^2次
             //data = await Task.Run(() => renderer.RenderParallel(scene, 4)); //多线程 像素采样率x，每个像素采样x^2次
-            data = await Task.Run(() => renderer.RenderGPU(scene, 8, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
-            await updateTask;
-            wb.WritePixels(new(0, 0, scene.Width, scene.Height),
-                data, scene.Width * 3, 0);
-            SaveImage(wb);
+            //data = await Task.Run(() => renderer.RenderGPU(scene, 8, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
+
+            //{
+            //    int ssLevel = 4;
+            //    Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
+            //    for (int i = 0; i < ssLevel * ssLevel; i++)
+            //    {
+            //        data = await Task.Run(() => renderer.RenderSingleStepByFrame(scene, framebuffer, i));
+            //        wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+            //            data, scene.Width * 3, 0);
+            //        image.Source = wb;
+            //        Global.UpdateProgress((i + 1) / (float)(ssLevel * ssLevel));
+            //    }
+            //    Global.UpdateProgress(1);
+            //    await updateTask;
+            //}
+
+            {
+                int ssLevel = 16;
+                data = new byte[scene.Width * scene.Height * 3];
+                var order = Enumerable.Range(0, scene.Width * scene.Height).ToArray();
+                RandomSort(order);
+                for (int i = 0; i < order.Length; i++)
+                {
+                    data = await Task.Run(() => renderer.RenderSingleStepByPixel(scene, data, ssLevel,order, ref i));
+                    wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+                        data, scene.Width * 3, 0);
+                    image.Source = wb;
+                    Global.UpdateProgress((i + 1) / (float)order.Length);
+                }
+                Global.UpdateProgress(1);
+                await updateTask;
+            }
 
             image.Source = wb;
+            SaveImage(wb);
             progressBarViewer.Visibility = Visibility.Collapsed;
             MessageBox.Show($"Time taken:{sw.Elapsed}", "Render Complete");
         }
@@ -131,6 +228,13 @@ namespace Assignment7
                 if (Math.Abs(100 - progressValue) < 0.01)
                     break;
             }
+        }
+
+        void ResetProgress()
+        {
+            progressValue = 0;
+            progressBar.Value = progressValue;
+            progressBarText.Text = $"{progressBar.Value:F2}%";
         }
 
         #endregion
