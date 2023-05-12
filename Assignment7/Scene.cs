@@ -43,7 +43,7 @@ namespace Assignment7
 
         // creating the scene (adding objects and lights)
         List<GeometryObject> objects = new();
-        public GeometryObject[] Objects { get=> objects.ToArray(); }
+        public GeometryObject[] Objects { get => objects.ToArray(); }
 
         List<Light> lights = new();
 
@@ -206,23 +206,34 @@ namespace Assignment7
 
                 Debug.Assert(inter.Material != null);
                 var wi = Vector3f.Normalize(inter.Material.Sample(wo, n)); //随机出射角
-                var ray_i = new Ray(p, wi); // 随机随机生成出射光线（间接光照光线）
+                var ray_i = new Ray(p, wi); // 生成出射光线（间接光照光线）
 
                 var hitInter = Intersect(ray_i); // 出射光线与其他物体交点（间接光照发光点）
                 if (!hitInter.Happened)
                     break; // 计算间接光照，出射光线未命中物体，结束
 
                 Debug.Assert(hitInter.Material != null);
+
                 if (hitInter.Material.HasEmission())
+                {
+                    if (inter.Material.Type == MaterialType.Mirror)
+                    {
+                        Li += hitInter.Material.Emission * Fd;
+                    }
+
                     break; // 计算间接光照，出射光线命中光源，结束
+                }
 
                 // 间接光线的直接光照部分
                 var Li_d = directLight(hitInter, ray_i.direction, depth);
 
-                var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
-                var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
-                //更新间接光照系数
-                Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
+                if (inter.Material.Type != MaterialType.Mirror)
+                {
+                    var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
+                    var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
+                    //更新间接光照系数
+                    Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
+                }
 
                 Li += Li_d * Fd;
 
@@ -243,6 +254,8 @@ namespace Assignment7
             {
                 return inter.Material.Emission;
             }
+
+            if (inter.Material.Type == MaterialType.Mirror) return new(0);
 
             // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
             SampleLight(out var interLight, out var pdfLight);

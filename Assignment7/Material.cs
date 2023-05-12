@@ -10,7 +10,7 @@ using Vector3f = System.Numerics.Vector3;
 
 namespace Assignment7
 {
-    public enum MaterialType { DIFFUSE, Microfacet };
+    public enum MaterialType { DIFFUSE, Microfacet, Mirror };
     public class Material
     {
         // Compute reflection direction
@@ -129,9 +129,13 @@ namespace Assignment7
         {
             switch (Type)
             {
+                case MaterialType.Mirror:
+                    {
+                        return reflect(wi, N);
+                    }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
-                {
+                    {
                         // uniform sample on the hemisphere在半球上均匀采样
                         float x_1 = Global.GetRandomFloat(), x_2 = Global.GetRandomFloat();
                         //z∈[0,1]，是随机半球方向的z轴向量
@@ -153,6 +157,10 @@ namespace Assignment7
         {
             switch (Type)
             {
+                case MaterialType.Mirror:
+                    {
+                        return 1;
+                    }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
                     {
@@ -172,6 +180,10 @@ namespace Assignment7
         {
             switch (Type)
             {
+                case MaterialType.Mirror:
+                    {
+                        return new(1f);
+                    }
                 case MaterialType.DIFFUSE:
                     {
                         // calculate the contribution of diffuse   model

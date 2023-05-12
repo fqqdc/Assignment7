@@ -9,9 +9,8 @@ using System.Windows.Threading;
 using Vector3f = System.Numerics.Vector3;
 using System.Threading;
 using System.Linq;
-using AForge.Imaging.Filters;
-using System.Drawing;
 using System.IO;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Assignment7
 {
@@ -27,7 +26,6 @@ namespace Assignment7
 
             Loaded += MainWindow_Loaded;
         }
-
         void RandomSort(int[] array)
         {
             Random random = new Random();
@@ -40,53 +38,6 @@ namespace Assignment7
                 array[randomIndex] = temp;
                 last--;//位置改变
             }
-        }
-
-        // 去噪
-        public static ImageSource MedianFilter(ImageSource inputImage, int filterSize)
-        {
-            var bitmap = ImageSourceToBitmap(inputImage);
-            if (bitmap == null) throw new NullReferenceException();
-
-            Median filter = new Median(filterSize);
-            Bitmap bitmapApply = filter.Apply(bitmap);
-
-
-            return BitmapToImageSource(bitmapApply);
-        }
-
-        // 将System.Drawing.Bitmap对象转换为System.Windows.Controls.ImageSource对象
-        public static BitmapImage BitmapToImageSource(Bitmap bitmap)
-        {
-            MemoryStream memoryStream = new MemoryStream();
-            bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Bmp);
-
-            BitmapImage bitmapImage = new BitmapImage();
-            bitmapImage.BeginInit();
-            bitmapImage.StreamSource = new MemoryStream(memoryStream.ToArray());
-            bitmapImage.EndInit();
-
-            return bitmapImage;
-        }
-
-        // 将System.Windows.Controls.ImageSource对象转换为System.Drawing.Bitmap对象
-        public static Bitmap? ImageSourceToBitmap(ImageSource imageSource)
-        {
-            Bitmap? bitmap = null;
-
-            if (imageSource is BitmapSource bitmapSource)
-            {
-                using (MemoryStream memoryStream = new MemoryStream())
-                {
-                    BitmapEncoder encoder = new BmpBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
-                    encoder.Save(memoryStream);
-
-                    bitmap = new Bitmap(memoryStream);
-                }
-            }
-
-            return bitmap;
         }
 
 
@@ -107,9 +58,10 @@ namespace Assignment7
                 96, 96, PixelFormats.Bgr24, null);
             var updateTask = Task.Run(UpdateProgressTask);
             //data = await Task.Run(() => renderer.Render(scene, 2)); //单线程 像素采样率x，每个像素采样x^2次
-            //data = await Task.Run(() => renderer.RenderParallel(scene, 8)); //多线程 像素采样率x，每个像素采样x^2次
+            data = await Task.Run(() => renderer.RenderParallel(scene, 4)); //多线程 像素采样率x，每个像素采样x^2次
             //data = await Task.Run(() => renderer.RenderGPU(scene, 8, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
-
+            
+            var RenderSingleStepByFrame = async () =>
             {
                 int ssLevel = 16;
                 Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
@@ -123,24 +75,27 @@ namespace Assignment7
                 }
                 Global.UpdateProgress(1);
                 await updateTask;
-            }
+            };
+            //await RenderSingleStepByFrame();
 
-            //{
-            //    int ssLevel = 8;
-            //    data = new byte[scene.Width * scene.Height * 3];
-            //    var order = Enumerable.Range(0, scene.Width * scene.Height).ToArray();
-            //    RandomSort(order);
-            //    for (int i = 0; i < order.Length; i++)
-            //    {
-            //        data = await Task.Run(() => renderer.RenderSingleStepByPixel(scene, data, ssLevel, order, ref i));
-            //        wb.WritePixels(new(0, 0, scene.Width, scene.Height),
-            //            data, scene.Width * 3, 0);
-            //        image.Source = wb;
-            //        Global.UpdateProgress((i + 1) / (float)order.Length);
-            //    }
-            //    Global.UpdateProgress(1);
-            //    await updateTask;
-            //}
+            var RenderSingleStepByPixel = async () =>
+            {
+                int ssLevel = 8;
+                data = new byte[scene.Width * scene.Height * 3];
+                var order = Enumerable.Range(0, scene.Width * scene.Height).ToArray();
+                RandomSort(order);
+                for (int i = 0; i < order.Length; i++)
+                {
+                    data = await Task.Run(() => renderer.RenderSingleStepByPixel(scene, data, ssLevel, order, ref i));
+                    wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+                        data, scene.Width * 3, 0);
+                    image.Source = wb;
+                    Global.UpdateProgress((i + 1) / (float)order.Length);
+                }
+                Global.UpdateProgress(1);
+                await updateTask;
+            };
+            //await RenderSingleStepByPixel();
 
             wb.WritePixels(new(0, 0, scene.Width, scene.Height),
                         data, scene.Width * 3, 0);
@@ -154,7 +109,7 @@ namespace Assignment7
         Scene scene = new(512, 512) // 分辨率
         {
             //RussianRoulette = .8f, // 光线反射概率
-            ExpectedTime = 5, // 光线反射次数期望
+            ExpectedTime = 8, // 光线反射次数期望
             //BackgroundColor = new(0),
         };
         void InitializeScene()
@@ -169,18 +124,19 @@ namespace Assignment7
                 + 15.6f * new Vector3f(0.740f + 0.287f, 0.740f + 0.160f, 0.740f)
                 + 18.4f * new Vector3f(0.737f + 0.642f, 0.737f + 0.159f, 0.737f))
             { Kd = new(0.65f) };
-            Material whiteM = new Material(MaterialType.Microfacet, new(0.0f)) { Kd = new(0.725f, 0.71f, 0.68f), Ks = new(0.45f) };
+            //Material whiteM = new Material(MaterialType.Microfacet, new(0.0f)) { Kd = new(0.725f, 0.71f, 0.68f), Ks = new(0.45f) };
+            Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Kd = new(0), Ks = new(0f) };
 
             MeshTriangle floor = new("models/cornellbox/floor.obj", white);
             MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", white);
-            MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", white);
+            MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", mirror);
             MeshTriangle left = new("models/cornellbox/left.obj", red);
             MeshTriangle right = new("models/cornellbox/right.obj", green);
             MeshTriangle light_ = new("models/cornellbox/light.obj", light);
 
-            MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
-            //Sphere sphere1 = new(new(170, 110, 350), 110, whiteM);
-            //Sphere sphere2 = new(new(380, 90, 450), 90, white);
+            //MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
+            Sphere sphere1 = new(new(170, 110, 350), 110, mirror);
+            Sphere sphere2 = new(new(380, 90, 450), 90, mirror);
 
             scene.Add(floor);
             scene.Add(shortbox);
