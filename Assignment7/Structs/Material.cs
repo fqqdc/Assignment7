@@ -1,4 +1,5 @@
 ﻿using Assignment6;
+using Assignment7;
 using ILGPU.Algorithms.Random;
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ namespace Structs
     public struct Material
     {
         // Compute reflection direction
-        private Vector3f reflect(Vector3f I, Vector3f N)
+        private readonly Vector3f reflect(Vector3f I, Vector3f N)
         {
             return I - 2 * Vector3f.Dot(I, N) * N;
         }
@@ -99,7 +100,8 @@ namespace Structs
         public required Vector3f Kd { get; init; }
         public required Vector3f Ks { get; init; }
         public float SpecularExponent { get; }
-        //Texture tex;
+
+        public MaterialType Type { get; init; }
 
         public readonly bool HasEmission()
         {
@@ -116,6 +118,9 @@ namespace Structs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly Vector3f Sample(in Vector3f wi, in Vector3f N, ref Structs.Random rng)
         {
+            if(Type == MaterialType.Mirror)
+                return reflect(wi, N);
+
             // uniform sample on the hemisphere在半球上均匀采样
             float x_1 = rng.NextFloat(), x_2 = rng.NextFloat();
             //z∈[0,1]，是随机半球方向的z轴向量

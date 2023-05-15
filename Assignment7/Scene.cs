@@ -182,15 +182,19 @@ namespace Assignment7
         // Implementation of Path Tracing
         public virtual Vector3f CastRay(in Ray ray, int depth)
         {
-            // TODO Implement Path Tracing Algorithm here
-
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
             if (!inter.Happened)
                 return BackgroundColor;
 
+            Debug.Assert(inter.Material != null);
             // 直接光照
             var Ld = directLight(inter, ray.direction, depth);
+            if (inter.Material.HasEmission())
+            {
+                return Ld;
+            }
+
 
             // 间接光照
             var Fd = Vector3f.One; // 间接光照系数
@@ -198,7 +202,7 @@ namespace Assignment7
             var Li = Vector3f.Zero; // 间接光照
             // 按照概率计算间接光照
             while (Global.GetRandomFloat() < RussianRoulette)
-            {
+            {                
                 depth += 1;
 
                 var p = inter.Coords; // 待计算间接光照的位置
@@ -220,7 +224,6 @@ namespace Assignment7
                     {
                         Li += hitInter.Material.Emission * Fd;
                     }
-
                     break; // 计算间接光照，出射光线命中光源，结束
                 }
 
@@ -255,7 +258,7 @@ namespace Assignment7
                 return inter.Material.Emission;
             }
 
-            if (inter.Material.Type == MaterialType.Mirror) return new(0);
+            if (inter.Material.Type == MaterialType.Mirror) return Vector3f.Zero;
 
             // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
             SampleLight(out var interLight, out var pdfLight);
@@ -274,7 +277,7 @@ namespace Assignment7
             Ray rayP2L = new(p, dirP2L);
             Intersection interP2L = Intersect(rayP2L); ;
             // 如果关于没被遮挡
-            //if ((interP2L.coords - pLight).LengthSquared() < Renderer.EPSILON)
+            //if ((interP2L.Coords - pLight).LengthSquared() < Renderer.EPSILON)
             if (interP2L.Distance - disP2L.Length() > -Renderer.EPSILON)
             {
                 directLight = emitLight * inter.Material.Eval(wo, rayP2L.direction, n)

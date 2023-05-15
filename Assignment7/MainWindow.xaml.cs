@@ -57,10 +57,10 @@ namespace Assignment7
             WriteableBitmap wb = new(scene.Width, scene.Height,
                 96, 96, PixelFormats.Bgr24, null);
             var updateTask = Task.Run(UpdateProgressTask);
-            //data = await Task.Run(() => renderer.Render(scene, 2)); //单线程 像素采样率x，每个像素采样x^2次
-            data = await Task.Run(() => renderer.RenderParallel(scene, 4)); //多线程 像素采样率x，每个像素采样x^2次
-            //data = await Task.Run(() => renderer.RenderGPU(scene, 8, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
-            
+            //data = await Task.Run(() => renderer.Render(scene, 1)); //单线程 像素采样率x，每个像素采样x^2次
+            data = await Task.Run(() => renderer.RenderParallel(scene, 8)); //多线程 像素采样率x，每个像素采样x^2次
+            //data = await Task.Run(() => renderer.RenderGPU(scene, 16, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
+
             var RenderSingleStepByFrame = async () =>
             {
                 int ssLevel = 16;
@@ -109,16 +109,16 @@ namespace Assignment7
         Scene scene = new(512, 512) // 分辨率
         {
             //RussianRoulette = .8f, // 光线反射概率
-            ExpectedTime = 8, // 光线反射次数期望
+            ExpectedTime = 5, // 光线反射次数期望
             //BackgroundColor = new(0),
         };
         void InitializeScene()
         {
             Global.UpdateProgress = DefaultUpdateProgress;
 
-            Material red = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new(0.63f, 0.065f, 0.05f) };
-            Material green = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new(0.14f, 0.45f, 0.091f) };
-            Material white = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new(0.725f, 0.71f, 0.68f) };
+            Material red = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new Vector3f(0.63f, 0.065f, 0.05f) };
+            Material green = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new Vector3f(0.14f, 0.45f, 0.091f) };
+            Material white = new Material(MaterialType.DIFFUSE, new(0.0f)) { Kd = new Vector3f(0.725f, 0.71f, 0.68f) };
             Material light = new Material(MaterialType.DIFFUSE,
                 8.0f * new Vector3f(0.747f + 0.058f, 0.747f + 0.258f, 0.747f)
                 + 15.6f * new Vector3f(0.740f + 0.287f, 0.740f + 0.160f, 0.740f)
@@ -128,25 +128,31 @@ namespace Assignment7
             Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Kd = new(0), Ks = new(0f) };
 
             MeshTriangle floor = new("models/cornellbox/floor.obj", white);
-            MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", white);
+            MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", mirror);
             MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", mirror);
             MeshTriangle left = new("models/cornellbox/left.obj", red);
             MeshTriangle right = new("models/cornellbox/right.obj", green);
             MeshTriangle light_ = new("models/cornellbox/light.obj", light);
+
+            MeshTriangle shortbox2 = new("models/cornellbox/shortbox2.obj", mirror);
+            //MeshTriangle pad = new("models/cornellbox/shortpad.obj", mt: white);
 
             //MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
             Sphere sphere1 = new(new(170, 110, 350), 110, mirror);
             Sphere sphere2 = new(new(380, 90, 450), 90, mirror);
 
             scene.Add(floor);
-            scene.Add(shortbox);
-            scene.Add(tallbox);
+            //scene.Add(shortbox);            
+            //scene.Add(tallbox);
             //scene.Add(bunny);
             //scene.Add(sphere1);
             //scene.Add(sphere2);
             scene.Add(left);
             scene.Add(right);
             scene.Add(light_);
+
+            scene.Add(shortbox2);
+            //scene.Add(pad);
 
             scene.BuildBVH();
         }

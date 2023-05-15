@@ -57,15 +57,24 @@ namespace Structs
 
                 Debug.Assert(hitInter.Material != -1);
                 if (bvh.Materials[hitInter.Material].HasEmission())
+                {
+                    if (bvh.Materials[inter.Material].Type == MaterialType.Mirror)
+                    {
+                        Li += bvh.Materials[hitInter.Material].Emission * Fd;
+                    }
                     break; // 计算间接光照，出射光线命中光源，结束
+                }
 
                 // 间接光线的直接光照部分
                 var Li_d = directLight(hitInter, ray_i.Direction, bvh, ref rng);
 
-                var f_r = bvh.Materials[inter.Material].Eval(wo, wi, n); // 材质光照系数
-                var pdf = bvh.Materials[inter.Material].Pdf(wo, wi, n); // 密度函数
-                //更新间接光照系数
-                Fd *= f_r * Vector3f.Dot(wi, n) / pdf / scene.RussianRoulette;
+                if (bvh.Materials[inter.Material].Type != MaterialType.Mirror)
+                {
+                    var f_r = bvh.Materials[inter.Material].Eval(wo, wi, n); // 材质光照系数
+                    var pdf = bvh.Materials[inter.Material].Pdf(wo, wi, n); // 密度函数
+                                                                            //更新间接光照系数
+                    Fd *= f_r * Vector3f.Dot(wi, n) / pdf / scene.RussianRoulette;
+                }
 
                 Li += Li_d * Fd;
 
@@ -86,6 +95,8 @@ namespace Structs
             {
                 return bvh.Materials[inter.Material].Emission;
             }
+
+            if (bvh.Materials[inter.Material].Type == MaterialType.Mirror) return new(0);
 
             // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
             SampleLight(out var interLight, out var pdfLight, bvh, ref rng);

@@ -8,6 +8,6 @@ namespace Structs
 {
     public static class Const
     {
-        public const float EPSILON = 0.001f;
+        public const float EPSILON = 0.0001f;
     }
 }

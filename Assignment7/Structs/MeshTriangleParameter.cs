@@ -86,6 +86,7 @@ namespace Structs
                     Emission = obj.Emission,
                     Kd = obj.Kd,
                     Ks = obj.Ks,
+                    Type = obj.Type,
                 };
                 lstMaterial.Add(material);
             }

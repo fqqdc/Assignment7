@@ -23,7 +23,7 @@ namespace Assignment7
     };
     public class Renderer
     {
-        public const float EPSILON = 0.001f;
+        public const float EPSILON = 0.0001f;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float deg2rad(float deg) => deg * MathF.PI / 180.0f;
@@ -86,9 +86,9 @@ namespace Assignment7
                 }
                 v /= _v.Length;
 
-                colorDate[index * 3 + 2] = (byte)(255 * Math.Clamp(v.X, 0, 1)); //R
-                colorDate[index * 3 + 1] = (byte)(255 * Math.Clamp(v.Y, 0, 1)); //G
-                colorDate[index * 3 + 0] = (byte)(255 * Math.Clamp(v.Z, 0, 1)); //B
+                colorDate[index * 3 + 2] = (byte)(255 * Math.Pow(Math.Clamp(v.X, 0, 1),0.6f)); //R
+                colorDate[index * 3 + 1] = (byte)(255 * Math.Pow(Math.Clamp(v.Y, 0, 1),0.6f)); //G
+                colorDate[index * 3 + 0] = (byte)(255 * Math.Pow(Math.Clamp(v.Z, 0, 1), 0.6f)); //B
             }
 
             Global.UpdateProgress(1);
@@ -145,9 +145,9 @@ namespace Assignment7
                     var _v = framebuffer[index];
                     var v = _v / (nStep + 1);
 
-                    colorDate[index * 3 + 2] = (byte)(255 * v.X); //R
-                    colorDate[index * 3 + 1] = (byte)(255 * v.Y); //G
-                    colorDate[index * 3 + 0] = (byte)(255 * v.Z); //B
+                    colorDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
+                    colorDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
+                    colorDate[index * 3 + 0] = (byte)(255 * MathF.Pow(v.Z, 0.6f)); //B
                 }
             });
 
@@ -208,9 +208,9 @@ namespace Assignment7
                 }
                 v /= (ssLevel * ssLevel);
 
-                colorData[index * 3 + 2] = (byte)(255 * v.X); //R
-                colorData[index * 3 + 1] = (byte)(255 * v.Y); //G
-                colorData[index * 3 + 0] = (byte)(255 * v.Z); //B
+                colorData[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
+                colorData[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
+                colorData[index * 3 + 0] = (byte)(255 * MathF.Pow(v.Z, 0.6f)); //B
 
                 if (stopwatch.ElapsedMilliseconds > 1000)
                     break;
@@ -276,12 +276,13 @@ namespace Assignment7
                         for (int i = 0; i < _v.Length; i++)
                         {
                             v += Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One);
+                            //v = Vector3f.Max(v, Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One));
                         }
                         v /= _v.Length;
 
-                        rowDate[index * 3 + 2] = (byte)(255 * v.X); //R
-                        rowDate[index * 3 + 1] = (byte)(255 * v.Y); //G
-                        rowDate[index * 3 + 0] = (byte)(255 * v.Z); //B
+                        rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
+                        rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
+                        rowDate[index * 3 + 0] = (byte)(255 * MathF.Pow(v.Z, 0.6f)); //B
                     }
                 });
 
@@ -348,9 +349,9 @@ namespace Assignment7
                         }
                         v /= _v.Length;
 
-                        rowDate[index * 3 + 2] = (byte)(255 * v.X); //R
-                        rowDate[index * 3 + 1] = (byte)(255 * v.Y); //G
-                        rowDate[index * 3 + 0] = (byte)(255 * v.Z); //B
+                        rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
+                        rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
+                        rowDate[index * 3 + 0] = (byte)(255 * MathF.Pow(v.Z, 0.6f)); //B
                     }
                 });
 
