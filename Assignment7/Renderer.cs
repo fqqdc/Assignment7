@@ -23,8 +23,6 @@ namespace Assignment7
     };
     public class Renderer
     {
-        public const float EPSILON = 0.0001f;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float deg2rad(float deg) => deg * MathF.PI / 180.0f;
 
@@ -35,6 +33,11 @@ namespace Assignment7
             float baseValue = levelInc * 0.5f;
 
             return (x + baseValue + levelInc * (subIndex % ssLevel), y + baseValue + levelInc * (subIndex / ssLevel));
+        }
+
+        static (float subX, float subY) CalcSubXY(int x, int y)
+        {
+            return (x + Global.GetRandomFloat(), y + Global.GetRandomFloat());
         }
 
         public byte[] Render(Scene scene, int ssLevel = 1)
@@ -224,8 +227,11 @@ namespace Assignment7
             if (ssLevel < 1)
                 throw new ArgumentOutOfRangeException("ssLevel", "超采样等级范围：1 <= ssLevel");
 
+            //samples per pixel
+            int spp = ssLevel * ssLevel;
+
             byte[] colorDate = new byte[scene.Width * scene.Height * 3];
-            Vector3f[] rowbuffer = new Vector3f[scene.Width * ssLevel * ssLevel];
+            Vector3f[] rowbuffer = new Vector3f[scene.Width * spp];
 
             float scale = MathF.Tan(deg2rad((float)scene.Fov * 0.5f));
             float imageAspectRatio = scene.Width / (float)scene.Height;
@@ -234,18 +240,18 @@ namespace Assignment7
             Vector3f eye_pos = new(278, 273, -800);
 
             var part = Partitioner.Create(0, scene.Width, scene.Width / Environment.ProcessorCount);
-            var partSS = Partitioner.Create(0, ssLevel * ssLevel * scene.Width, ssLevel * ssLevel * scene.Width / Environment.ProcessorCount);
+            var partSS = Partitioner.Create(0, spp * scene.Width, spp * scene.Width / Environment.ProcessorCount);
             for (int j = 0; j < scene.Height; j++)
             {
                 var plr = Parallel.ForEach(partSS, range =>
                 {
                     for (int m = range.Item1; m < range.Item2; m++)
                     {
-                        int i = m / (ssLevel * ssLevel);
-                        int subIndex = m % (ssLevel * ssLevel);
+                        int i = m / spp;
+                        int subIndex = m % spp;
 
-                        var (x, y) = CalcSubXY(i, j, subIndex, ssLevel);
-                        //var (x, y) = (i + 0.5f, j + 0.5f);
+                        //var (x, y) = CalcSubXY(i, j, subIndex, ssLevel);
+                        var (x, y) = CalcSubXY(i, j);
 
                         // generate primary ray direction
                         x = x * 2f / scene.Width - 1;
@@ -260,7 +266,7 @@ namespace Assignment7
                         // Don't forget to normalize this direction!
                         Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
 
-                        int index = i * ssLevel * ssLevel + subIndex;
+                        int index = i * spp + subIndex;
                         rowbuffer[index] = scene.CastRay(new(eye_pos, dir), 0);
                     }
                 });
@@ -271,14 +277,15 @@ namespace Assignment7
                     for (int index = range.Item1; index < range.Item2; index++)
                     {
                         var rowDate = colorDate.AsSpan(j * scene.Width * 3, scene.Width * 3);
-                        var _v = rowbuffer.AsSpan((index * ssLevel * ssLevel)..(index * ssLevel * ssLevel + ssLevel * ssLevel));
+                        var _v = rowbuffer.AsSpan((index * spp)..(index * spp + spp));
                         Vector3f v = Vector3f.Zero;
                         for (int i = 0; i < _v.Length; i++)
                         {
                             v += Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One);
-                            //v = Vector3f.Max(v, Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One));
+                            //v += _v[i]; // TEST
                         }
                         v /= _v.Length;
+                        //v = Vector3f.Clamp(v, Vector3f.Zero, Vector3f.One); // TEST
 
                         rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
                         rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
@@ -346,8 +353,10 @@ namespace Assignment7
                         for (int i = 0; i < _v.Length; i++)
                         {
                             v += Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One);
+                            //v += _v[i]; // TEST
                         }
                         v /= _v.Length;
+                        //v = Vector3f.Clamp(v, Vector3f.Zero, Vector3f.One); // TEST
 
                         rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
                         rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G

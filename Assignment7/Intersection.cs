@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,7 +10,8 @@ namespace Assignment7
 {
     public struct Intersection
     {
-        public bool Happened;
+        [MemberNotNull(nameof(Material))]
+        public bool Happened { get; set; }
         public Vector3f Coords;
         //public Vector3f tcoords;
         public Vector3f Normal;

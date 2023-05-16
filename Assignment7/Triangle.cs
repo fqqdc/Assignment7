@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Vector3f = System.Numerics.Vector3;
 using Vector2f = System.Numerics.Vector2;
 using System.Runtime.CompilerServices;
+using Structs;
 
 namespace Assignment7
 {
@@ -52,7 +53,7 @@ namespace Assignment7
             double u, v, t_tmp = 0;
             Vector3f pvec = Vector3f.Cross(ray.direction, e2); // s1
             double det = Vector3f.Dot(e1, pvec); // e1.dot(s1)
-            if (Math.Abs(det) < Renderer.EPSILON) //分母特别小将导致t特别大，相当于很远很远，看不见
+            if (Math.Abs(det) < Const.EPSILON) //分母特别小将导致t特别大，相当于很远很远，看不见
                 return inter;
 
             double det_inv = 1.0 / det; // 1/(e1 s1)

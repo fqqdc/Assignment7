@@ -1,4 +1,5 @@
 ﻿using Assignment6;
+using Structs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -114,7 +115,7 @@ namespace Assignment7
 
         public bool HasEmission()
         {
-            if (Emission.Length() > Renderer.EPSILON) return true;
+            if (Emission.Length() > Const.EPSILON) return true;
             else return false;
         }
 
@@ -159,7 +160,9 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        return 1;
+                        if (wo == reflect(wi, N))
+                            return 1f;
+                        return 0f;
                     }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
@@ -182,7 +185,9 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        return new(1f);
+                        if (wo == reflect(wi, N))
+                            return Vector3f.One;
+                        return Vector3f.Zero;
                     }
                 case MaterialType.DIFFUSE:
                     {
@@ -194,7 +199,7 @@ namespace Assignment7
                             return diffuse;
                         }
                         else
-                            return new(0.0f);
+                            return Vector3f.Zero;
                     }
                 case MaterialType.Microfacet: //微表面材质的BRDF
                     {
@@ -234,7 +239,7 @@ namespace Assignment7
                             return Ks * specular + kd_ * Kd * diffuse;
                         }
                         else
-                            return new(0.0f);
+                            return Vector3f.Zero;
                     }
             }
             return Vector3f.Zero;

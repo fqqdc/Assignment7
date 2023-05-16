@@ -20,7 +20,7 @@ namespace Assignment7
         public int Width { get; } = 1280;
         public int Height { get; } = 960;
         public double Fov { get; init; } = 40;
-        public Vector3f BackgroundColor { get; init; } = new(0.235294f, 0.67451f, 0.843137f);
+        public Vector3f BackgroundColor { get; init; } = Vector3f.Zero;
         public int MaxDepth { get; init; } = 1;
 
         public float RussianRoulette { get; init; } = 0.8f;
@@ -180,21 +180,18 @@ namespace Assignment7
         }
 
         // Implementation of Path Tracing
-        public virtual Vector3f CastRay(in Ray ray, int depth)
+        public virtual Vector3f CastRay(Ray ray, int depth)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
+            ReplaceWithMirror(ref inter, ref ray);
             if (!inter.Happened)
                 return BackgroundColor;
+
 
             Debug.Assert(inter.Material != null);
             // 直接光照
             var Ld = directLight(inter, ray.direction, depth);
-            if (inter.Material.HasEmission())
-            {
-                return Ld;
-            }
-
 
             // 间接光照
             var Fd = Vector3f.One; // 间接光照系数
@@ -202,17 +199,18 @@ namespace Assignment7
             var Li = Vector3f.Zero; // 间接光照
             // 按照概率计算间接光照
             while (Global.GetRandomFloat() < RussianRoulette)
-            {                
+            {
                 depth += 1;
 
                 var p = inter.Coords; // 待计算间接光照的位置
                 var n = Vector3f.Normalize(inter.Normal); // 待计算间接光照的位置法线
 
                 Debug.Assert(inter.Material != null);
-                var wi = Vector3f.Normalize(inter.Material.Sample(wo, n)); //随机出射角
+                var wi = Vector3f.Normalize(inter.Material.Sample(wo, n)); //(随机)生成出射角
                 var ray_i = new Ray(p, wi); // 生成出射光线（间接光照光线）
 
                 var hitInter = Intersect(ray_i); // 出射光线与其他物体交点（间接光照发光点）
+                ReplaceWithMirror(ref hitInter, ref ray_i);
                 if (!hitInter.Happened)
                     break; // 计算间接光照，出射光线未命中物体，结束
 
@@ -220,23 +218,16 @@ namespace Assignment7
 
                 if (hitInter.Material.HasEmission())
                 {
-                    if (inter.Material.Type == MaterialType.Mirror)
-                    {
-                        Li += hitInter.Material.Emission * Fd;
-                    }
                     break; // 计算间接光照，出射光线命中光源，结束
                 }
 
                 // 间接光线的直接光照部分
                 var Li_d = directLight(hitInter, ray_i.direction, depth);
 
-                if (inter.Material.Type != MaterialType.Mirror)
-                {
-                    var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
-                    var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
-                    //更新间接光照系数
-                    Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
-                }
+                var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
+                var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
+                //更新间接光照系数
+                Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
 
                 Li += Li_d * Fd;
 
@@ -246,6 +237,27 @@ namespace Assignment7
             }
 
             return Ld + Li;
+        }
+
+        private Vector3f Reflect(Vector3f I, Vector3f N)
+        {
+            return I - 2 * Vector3f.Dot(I, N) * N;
+        }
+        private void ReplaceWithMirror(ref Intersection inter, ref Ray ray)
+        {
+            while (inter.Happened && inter.Material.Type == MaterialType.Mirror)
+            {
+                var pMirror = inter.Coords; // 光照的位置
+                var nMirror = Vector3f.Normalize(inter.Normal); // 光照的位置法线
+                var woMirror = Vector3f.Normalize(ray.direction); //光线入射角
+                Debug.Assert(inter.Material != null);
+                var wi = Vector3f.Normalize(Reflect(woMirror, nMirror)); // 生成反射角
+                var rayMirror = new Ray(pMirror, wi); // 生成出射光线（间接光照光线）
+
+                // 从镜面位置发出的光线与物体的交点
+                inter = Intersect(rayMirror);
+                ray = rayMirror;
+            }
         }
 
         private Vector3f directLight(in Intersection inter, in Vector3f wo, int depth)
@@ -258,8 +270,6 @@ namespace Assignment7
                 return inter.Material.Emission;
             }
 
-            if (inter.Material.Type == MaterialType.Mirror) return Vector3f.Zero;
-
             // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
             SampleLight(out var interLight, out var pdfLight);
 
@@ -270,21 +280,24 @@ namespace Assignment7
             var nLight = interLight.Normal;
             var emitLight = interLight.Emit;
 
-            var disP2L = (pLight - p);
-            var dirP2L = Vector3f.Normalize(disP2L);
+            var distanceP2L = (pLight - p);
+            var dirP2L = Vector3f.Normalize(distanceP2L);
 
             // Shoot a ray from p to x(Light)            
             Ray rayP2L = new(p, dirP2L);
             Intersection interP2L = Intersect(rayP2L); ;
             // 如果关于没被遮挡
-            //if ((interP2L.Coords - pLight).LengthSquared() < Renderer.EPSILON)
-            if (interP2L.Distance - disP2L.Length() > -Renderer.EPSILON)
+            if ((interP2L.Coords - pLight).LengthSquared() < Const.EPSILON)
+            //if (interP2L.Distance - distanceP2L.Length() > -Const.EPSILON)
             {
+                //GAMES101_Lecture_16.pdf P41
+                //Lo = ∫A Li(x,ωi) fr(x,ωi,ωo) cosθ cosθ' /(pLight-p)^2 dA
+
                 directLight = emitLight * inter.Material.Eval(wo, rayP2L.direction, n)
-                    * Vector3f.Dot(dirP2L, n)
-                    * Vector3f.Dot(-dirP2L, nLight)
-                    / disP2L.LengthSquared()
-                    / pdfLight;
+                    * Vector3f.Dot(dirP2L, n) // cosθ p点法线与光源的夹角
+                    * Vector3f.Dot(-dirP2L, nLight) // cosθ' 光源法线与光线的夹角
+                    / distanceP2L.LengthSquared() // 光源到p点距离的平方
+                    / pdfLight; // 1/dA
             }
 
             return directLight;
