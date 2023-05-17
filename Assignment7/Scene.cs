@@ -159,6 +159,20 @@ namespace Assignment7
             }
         }
 
+        public Vector3f MirrorLight(in Intersection inter, in Vector3f woMirror)
+        {
+            var pMirror = inter.Coords; // 光照的位置
+            var nMirror = Vector3f.Normalize(inter.Normal); // 光照的位置法线
+            Debug.Assert(inter.Material != null);
+            var wi = Vector3f.Normalize(Reflect(woMirror, nMirror)); // 生成反射角
+            var rayMirror = new Ray(pMirror, wi); // 生成出射光线（间接光照光线）
+
+            var hitInter = Intersect(rayMirror);
+            if (hitInter.Happened)
+                return hitInter.Material.Emission;
+            return Vector3f.Zero;
+        }
+
         public bool Trace(Ray ray, List<GeometryObject> objects,
             out float tNear, out int index, out GeometryObject? hitObject)
         {
@@ -180,16 +194,13 @@ namespace Assignment7
         }
 
         // Implementation of Path Tracing
-        public virtual Vector3f CastRay(Ray ray, int depth)
+        public Vector3f CastRay(Ray ray, int depth)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
-            ReplaceWithMirror(ref inter, ref ray);
             if (!inter.Happened)
                 return BackgroundColor;
 
-
-            Debug.Assert(inter.Material != null);
             // 直接光照
             var Ld = directLight(inter, ray.direction, depth);
 
@@ -210,13 +221,12 @@ namespace Assignment7
                 var ray_i = new Ray(p, wi); // 生成出射光线（间接光照光线）
 
                 var hitInter = Intersect(ray_i); // 出射光线与其他物体交点（间接光照发光点）
-                ReplaceWithMirror(ref hitInter, ref ray_i);
+                //ReplaceWithMirror(ref hitInter, ref ray_i);
                 if (!hitInter.Happened)
                     break; // 计算间接光照，出射光线未命中物体，结束
 
-                Debug.Assert(hitInter.Material != null);
-
-                if (hitInter.Material.HasEmission())
+                if (hitInter.Material.HasEmission() 
+                    && inter.Material.Type != MaterialType.Mirror )
                 {
                     break; // 计算间接光照，出射光线命中光源，结束
                 }
@@ -224,10 +234,14 @@ namespace Assignment7
                 // 间接光线的直接光照部分
                 var Li_d = directLight(hitInter, ray_i.direction, depth);
 
-                var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
-                var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
-                //更新间接光照系数
-                Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
+                if (inter.Material.Type != MaterialType.Mirror)
+                {
+                    var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
+                    var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
+
+                    //更新间接光照系数
+                    Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
+                }
 
                 Li += Li_d * Fd;
 
