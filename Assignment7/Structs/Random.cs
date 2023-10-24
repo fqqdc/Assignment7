@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -29,14 +30,12 @@ namespace Structs
 
         public ulong NextUInt64()
         {
-            ulong rnd = 0;
             UpdateSeed();
-            rnd = rnd ^ seed;
-            rnd <<= 32;
+            var a =  BitOperations.RotateLeft(seed, 5);
             UpdateSeed();
-            rnd = rnd ^ seed;
+            var b = BitOperations.RotateRight(seed, 29);
 
-            return rnd;
+            return seed = a ^ b;
         }
 
         public long NextInt64()

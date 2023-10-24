@@ -106,21 +106,21 @@ namespace Assignment7
                 + 18.4f * new Vector3f(0.737f + 0.642f, 0.737f + 0.159f, 0.737f))
             { Kd = new(0.65f) };
             //Material whiteM = new Material(MaterialType.Microfacet, new(0.0f)) { Kd = new(0.725f, 0.71f, 0.68f), Ks = new(0.45f) };
-            Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Kd = new(0), Ks = new(1f) };
+            //Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Kd = new(0), Ks = new(1f) };
 
             MeshTriangle floor = new("models/cornellbox/floor.obj", white);
             MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", white);
-            MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", mirror);
+            MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", white);
             MeshTriangle left = new("models/cornellbox/left.obj", red);
             MeshTriangle right = new("models/cornellbox/right.obj", green);
             MeshTriangle light_ = new("models/cornellbox/light.obj", light);
 
-            MeshTriangle shortbox2 = new("models/cornellbox/shortbox2.obj", mirror);
+            MeshTriangle shortbox2 = new("models/cornellbox/shortbox2.obj", white);
             //MeshTriangle pad = new("models/cornellbox/shortpad.obj", mt: white);
 
             //MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
-            Sphere sphere1 = new(new(170, 110, 350), 110, mirror);
-            Sphere sphere2 = new(new(380, 90, 450), 90, mirror);
+            Sphere sphere1 = new(new(170, 110, 350), 110, white);
+            Sphere sphere2 = new(new(380, 90, 450), 90, white);
 
             scene.Add(floor);
             scene.Add(shortbox);
