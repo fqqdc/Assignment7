@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -115,6 +116,34 @@ namespace Structs
             }
 
             return (uint)(randomProduct >> 32);
+        }
+
+        public void NextBytes(byte[] buffer) => NextBytes((Span<byte>)buffer);
+
+        public void NextBytes(Span<byte> buffer)
+        {
+            while (buffer.Length >= sizeof(ulong))
+            {
+                ulong s = NextUInt64();
+
+                Unsafe.WriteUnaligned(ref MemoryMarshal.GetReference(buffer), s);
+
+                buffer = buffer.Slice(sizeof(ulong));
+            }
+
+            if (!buffer.IsEmpty)
+            {
+                ulong s = NextUInt64();
+
+                var remainingBytes = MemoryMarshal.AsBytes<ulong>(new(ref s));
+                Debug.Assert(buffer.Length < sizeof(ulong));
+
+                //for (int i = 0; i < buffer.Length; i++)
+                //{
+                //    buffer[i] = remainingBytes[i];
+                //}
+                remainingBytes.Slice(0, buffer.Length).CopyTo(buffer);
+            }
         }
     }
 }
