@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,23 +16,23 @@ namespace Structs
         public Random(ulong _seed) => seed = _seed;
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void UpdateSeed()
+        {
+            const ulong a = 25214903917ul;
+            const ulong c = 11ul;
+            const ulong m = (1ul << 48) - 1;
+
+            seed = (a * seed + c) & m;
+        }
+
         public ulong NextUInt64()
         {
             ulong rnd = 0;
-            const ulong a = 25214903917;
-            const ulong c = 11;
-            const ulong m = (1 << 48) - 1;
-
-            seed = (a * seed + c) & m;
+            UpdateSeed();
             rnd = rnd ^ seed;
-            rnd <<= 16;
-            seed = (a * seed + c) & m;
-            rnd = rnd ^ seed;
-            rnd <<= 16;
-            seed = (a * seed + c) & m;
-            rnd = rnd ^ seed;
-            rnd <<= 16;
-            seed = (a * seed + c) & m;
+            rnd <<= 32;
+            UpdateSeed();
             rnd = rnd ^ seed;
 
             return rnd;

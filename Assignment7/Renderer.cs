@@ -254,7 +254,7 @@ namespace Assignment7
             var loadedKernel =
                 accelerator.LoadAutoGroupedStreamKernel(actionKernel);
 
-            using var random = accelerator.Allocate1D<Structs.Random>(PreRandoms(scene.Width * ssLevel * ssLevel));
+            using var random = accelerator.Allocate1D<Structs.Random>(CreateRandoms(scene.Width * ssLevel * ssLevel));
             using var output = accelerator.Allocate1D<Vector3f>(scene.Width * ssLevel * ssLevel);
 
             Structs.RendererParameter rendererParameter = new()
@@ -335,7 +335,7 @@ namespace Assignment7
             bvh = bVHAccelBulder.Build(meshTriangles, lstMateral, accelerator);
         }
 
-        private Structs.Random[] PreRandoms(int number)
+        private Structs.Random[] CreateRandoms(int number)
         {
             System.Random random = new();
             var objsRandom = new Structs.Random[number];

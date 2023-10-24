@@ -56,29 +56,27 @@ namespace Assignment7
             var renderer = new Renderer();
             WriteableBitmap wb = new(scene.Width, scene.Height,
                 96, 96, PixelFormats.Bgr24, null);
-            var updateTask = Task.Run(UpdateProgressTask);
             //data = await Task.Run(() => renderer.Render(scene, 1)); //单线程 像素采样率x，每个像素采样x^2次
             //data = await Task.Run(() => renderer.RenderParallel(scene, 4)); //多线程 像素采样率x，每个像素采样x^2次
-            //data = await Task.Run(() => renderer.RenderGPU(scene, 16, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
+            data = await Task.Run(() => renderer.RenderGPU(scene, 16, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
 
-            var RenderSingleStepByFrame = async () =>
-            {
-                int ssLevel = 16;
+            //var RenderSingleStepByFrame = async () =>
+            //{
+            //    int ssLevel = 16;
 
-                int spp = ssLevel * ssLevel;
-                Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
-                for (int i = 0; i < spp; i++)
-                {
-                    data = await Task.Run(() => renderer.RenderSingleStepByFrame(scene, framebuffer, i));
-                    wb.WritePixels(new(0, 0, scene.Width, scene.Height),
-                        data, scene.Width * 3, 0);
-                    image.Source = wb;
-                    Global.UpdateProgress((i + 1) / (float)(spp));
-                }
-                Global.UpdateProgress(1);
-                await updateTask;
-            };
-            await RenderSingleStepByFrame();
+            //    int spp = ssLevel * ssLevel;
+            //    Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
+            //    for (int i = 0; i < spp; i++)
+            //    {
+            //        data = await Task.Run(() => renderer.RenderSingleStepByFrame(scene, framebuffer, i));
+            //        wb.WritePixels(new(0, 0, scene.Width, scene.Height),
+            //            data, scene.Width * 3, 0);
+            //        image.Source = wb;
+            //        Global.UpdateProgress((i + 1) / (float)(spp));
+            //    }
+            //    Global.UpdateProgress(1);
+            //};
+            //await RenderSingleStepByFrame();
 
             wb.WritePixels(new(0, 0, scene.Width, scene.Height),
                         data, scene.Width * 3, 0);
@@ -125,7 +123,7 @@ namespace Assignment7
             Sphere sphere2 = new(new(380, 90, 450), 90, mirror);
 
             scene.Add(floor);
-            scene.Add(shortbox);            
+            scene.Add(shortbox);
             scene.Add(tallbox);
             //scene.Add(bunny);
             //scene.Add(sphere1);
@@ -150,30 +148,32 @@ namespace Assignment7
         }
 
         float progressValue = 0f;
-        AutoResetEvent updateProgressEnent = new(false);
         void DefaultUpdateProgress(float progress)
         {
             if (progressValue < progress * 100)
             {
                 progressValue = progress * 100;
-                updateProgressEnent.Set();
+                UpdateProgress(progress == 1f);
             }
         }
 
-        void UpdateProgressTask()
-        {
-            while (true)
-            {
-                updateProgressEnent.WaitOne();
 
+        SpinLock spinLock = new();
+        void UpdateProgress(bool ensure = false)
+        {
+            bool lockTaken = false;
+            if (ensure) spinLock.Enter(ref lockTaken);
+            else spinLock.TryEnter(ref lockTaken);
+
+            if (lockTaken)
+            {
                 Dispatcher.Invoke(() =>
                 {
                     progressBar.Value = Math.Max(progressBar.Value, progressValue);
                     progressBarText.Text = $"{progressBar.Value:F2}%";
                 });
 
-                if (Math.Abs(100 - progressValue) < 0.01)
-                    break;
+                spinLock.Exit();
             }
         }
 
