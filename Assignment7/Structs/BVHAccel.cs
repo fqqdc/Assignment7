@@ -100,7 +100,7 @@ namespace Structs
         {
             Debug.Assert(nodeIndex != -1);
 
-            float p = MathF.Sqrt(rng.NextFloat()) * Nodes[nodeIndex].Area;
+            float p = MathF.Sqrt(rng.NextSingle()) * Nodes[nodeIndex].Area;
             GetSample(ref rng, nodeIndex, p, out pos, out pdf);
             pdf /= Nodes[nodeIndex].Area;
         }

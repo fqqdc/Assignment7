@@ -42,7 +42,7 @@ namespace Structs
             var wo = Vector3f.Normalize(ray.Direction); //光线入射角
             var Li = Vector3f.Zero; // 间接光照
             // 按照概率计算间接光照
-            while (rng.NextFloat() < scene.RussianRoulette)
+            while (rng.NextSingle() < scene.RussianRoulette)
             {
                 var p = inter.Coords; // 待计算间接光照的位置
                 var n = Vector3f.Normalize(inter.Normal); // 待计算间接光照的位置法线
@@ -149,7 +149,7 @@ namespace Structs
                     emit_area_sum += nodes[meshIdx].Area;
                 }
             }
-            float p = rng.NextFloat() * emit_area_sum;
+            float p = rng.NextSingle() * emit_area_sum;
             emit_area_sum = 0;
             for (int i = 0; i < meshIdxes.IntLength; ++i)
             {

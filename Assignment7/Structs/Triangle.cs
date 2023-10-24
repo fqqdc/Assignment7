@@ -76,7 +76,7 @@ namespace Structs
         public readonly void Sample(ref Structs.Random rng, out Intersection pos, out float pdf)
         {
             pos = new();
-            float x = MathF.Sqrt(rng.NextFloat()), y = rng.NextFloat();
+            float x = MathF.Sqrt(rng.NextSingle()), y = rng.NextSingle();
             pos.Coords = V0 * (1.0f - x) + V1 * (x * (1.0f - y)) + V2 * (x * y);
             pos.Normal = Normal;
             //pos.Material = Material;

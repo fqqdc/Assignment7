@@ -341,7 +341,7 @@ namespace Assignment7
             var objsRandom = new Structs.Random[number];
             for (int i = 0; i < number; i++)
             {
-                objsRandom[i] = new(random.Next());
+                objsRandom[i] = new(((uint)random.Next()) | ((ulong)random.Next() << 32));
             }
             return objsRandom;
         }

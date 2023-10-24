@@ -122,7 +122,7 @@ namespace Structs
                 return reflect(wi, N);
 
             // uniform sample on the hemisphere在半球上均匀采样
-            float x_1 = rng.NextFloat(), x_2 = rng.NextFloat();
+            float x_1 = rng.NextSingle(), x_2 = rng.NextSingle();
             //z∈[0,1]，是随机半球方向的z轴向量
             float z = MathF.Abs(1.0f - 2.0f * x_1);
             //r是半球半径随机向量以法线为旋转轴的半径
