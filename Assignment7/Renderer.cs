@@ -11,6 +11,7 @@ using Structs;
 using ILGPU.Algorithms;
 using System.Diagnostics;
 using System.Threading;
+using ILGPU.Runtime.CPU;
 
 namespace Assignment7
 {
@@ -89,8 +90,8 @@ namespace Assignment7
                 }
                 v /= _v.Length;
 
-                colorDate[index * 3 + 2] = (byte)(255 * Math.Pow(Math.Clamp(v.X, 0, 1),0.6f)); //R
-                colorDate[index * 3 + 1] = (byte)(255 * Math.Pow(Math.Clamp(v.Y, 0, 1),0.6f)); //G
+                colorDate[index * 3 + 2] = (byte)(255 * Math.Pow(Math.Clamp(v.X, 0, 1), 0.6f)); //R
+                colorDate[index * 3 + 1] = (byte)(255 * Math.Pow(Math.Clamp(v.Y, 0, 1), 0.6f)); //G
                 colorDate[index * 3 + 0] = (byte)(255 * Math.Pow(Math.Clamp(v.Z, 0, 1), 0.6f)); //B
             }
 
@@ -246,8 +247,12 @@ namespace Assignment7
             var part = Partitioner.Create(0, scene.Width, scene.Width / Environment.ProcessorCount);
 
             using Context context = Context.Create(builder => builder.Default().EnableAlgorithms());
-            using Accelerator accelerator = context.GetPreferredDevice(preferCPU)
-                                      .CreateAccelerator(context);
+
+            Device device = context.GetCPUDevice(0);
+            if(!preferCPU)
+                device = context.Devices.OrderByDescending(d => d.MaxNumThreads).First();
+
+            using Accelerator accelerator = device.CreateAccelerator(context);
 
             // load / precompile the kernel
             var actionKernel = RenderKernel;
