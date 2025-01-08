@@ -338,7 +338,12 @@ namespace Assignment7
                 return Vector3f.Zero;
 
             // 自发光
-            var Le = Emission(inter, ray.direction);
+            var Le = Vector3f.Zero;
+            //Le = Emission(inter, ray.direction);
+            if (inter.Material.HasEmission())
+            {
+                return inter.Material.Emission;
+            }
 
             // 直接光照
             var Ld = DirectLight2(inter, ray.direction);
@@ -353,6 +358,16 @@ namespace Assignment7
                 var wo = Vector3f.Normalize(inter.Material.Sample(ray.direction, inter.Normal));
                 //生成出射光线（间接光照光线）
                 var ray_i = new Ray(inter.Coords, wo);
+
+                if (inter.Material.Type != MaterialType.Mirror)
+                {
+                    var hitInter = Intersect(ray_i);
+                    if(hitInter.Happened && hitInter.Material.HasEmission())
+                    {
+                        return Ld;
+                    }
+                }
+                
                 Li = CastRay2(ray_i) 
                     * Vector3f.Dot(wo, inter.Normal)
                     * inter.Material.Eval(ray.direction, wo, inter.Normal) / inter.Material.Pdf(ray.direction, wo, inter.Normal) / RussianRoulette;
@@ -374,24 +389,24 @@ namespace Assignment7
             // 镜面材质
             if (inter.Material.Type == MaterialType.Mirror)
             {
-                //计算反射光线
-                var pMirror = inter.Coords; // 光照的位置
-                var nMirror = inter.Normal; // 光照的位置法线
-                var reflect = Vector3f.Reflect(iw, nMirror); // 生成反射角
-                //判断反射光线是否与光源相交
-                var rayMirror = new Ray(pMirror, reflect); // 生成出射光线（间接光照光线）
-                var hitInter = Intersect(rayMirror);
-                if (hitInter.Happened)
-                {
-                    // 如果与光源相交，返回光源的颜色
-                    if (hitInter.Material.HasEmission())
-                    {
-                        return hitInter.Material.Emission;
-                    }
-                    // 如果没有相交，返回零向量
-                    return Vector3f.Zero;
-                }
-                //如果不相交，返回零向量
+                ////计算反射光线
+                //var pMirror = inter.Coords; // 光照的位置
+                //var nMirror = inter.Normal; // 光照的位置法线
+                //var reflect = Vector3f.Reflect(iw, nMirror); // 生成反射角
+                ////判断反射光线是否与光源相交
+                //var rayMirror = new Ray(pMirror, reflect); // 生成出射光线（间接光照光线）
+                //var hitInter = Intersect(rayMirror);
+                //if (hitInter.Happened)
+                //{
+                //    // 如果与光源相交，返回光源的颜色
+                //    if (hitInter.Material.HasEmission())
+                //    {
+                //        return hitInter.Material.Emission;
+                //    }
+                //    // 如果没有相交，返回零向量
+                //    return Vector3f.Zero;
+                //}
+                ////如果不相交，返回零向量
                 return Vector3f.Zero;
             }
 

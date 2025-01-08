@@ -97,7 +97,7 @@ namespace Assignment7
         public MaterialType Type { get; }
         //Vector3f m_color;
         public Vector3f Emission { get; }
-        public float Ior { get; }
+        public float Ior { get; init; }
         public Vector3f Kd { get; init; }
         public Vector3f Ks { get; init; }
         public float SpecularExponent { get; }
@@ -186,9 +186,16 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        if (wo == reflect(wi, N))
-                            return Vector3f.One;
-                        return Vector3f.Zero;
+                        float cosalpha = Vector3f.Dot(N, wo);
+                        float kr;
+                        if (cosalpha > 0)
+                        {
+                            fresnel(wi, N, Ior, out kr);
+                            Vector3f mirror = new(1 / cosalpha);
+                            return kr * mirror;
+                        }
+                        else
+                            return Vector3f.Zero;
                     }
                 case MaterialType.DIFFUSE:
                     {

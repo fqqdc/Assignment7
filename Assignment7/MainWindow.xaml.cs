@@ -53,7 +53,7 @@ namespace Assignment7
             progressBarText.Text = $"0%";
             progressBarViewer.Visibility = Visibility.Visible;
 
-            byte[] data = new byte[0];
+            byte[] data = [];
             var renderer = new Renderer();
             WriteableBitmap wb = new(scene.Width, scene.Height,
                 96, 96, PixelFormats.Bgr24, null);
@@ -107,7 +107,7 @@ namespace Assignment7
                 + 18.4f * new Vector3f(0.737f + 0.642f, 0.737f + 0.159f, 0.737f))
             { Kd = new(0.65f) };
             //Material whiteM = new Material(MaterialType.Microfacet, new(0.0f)) { Kd = new(0.725f, 0.71f, 0.68f), Ks = new(0.45f) };
-            Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Kd = new(0), Ks = new(1f) };
+            Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Ior = 40, Kd = new(0) };
 
             MeshTriangle floor = new("models/cornellbox/floor.obj", white);
             MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", white);
