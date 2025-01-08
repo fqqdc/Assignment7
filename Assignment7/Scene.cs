@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Security.Permissions;
 using System.Diagnostics.Metrics;
 using Structs;
+using Random = System.Random;
 
 namespace Assignment7
 {
@@ -55,12 +56,6 @@ namespace Assignment7
 
         public void Add(GeometryObject @object) { objects.Add(@object); }
         public void Add(Light light) { lights.Add(light); }
-
-        // Compute reflection direction
-        public Vector3f reflect(Vector3f I, Vector3f N)
-        {
-            return I - 2 * Vector3f.Dot(I, N) * N;
-        }
 
         // Compute refraction direction using Snell's law
         //
@@ -159,20 +154,6 @@ namespace Assignment7
             }
         }
 
-        public Vector3f MirrorLight(in Intersection inter, in Vector3f woMirror)
-        {
-            var pMirror = inter.Coords; // 光照的位置
-            var nMirror = Vector3f.Normalize(inter.Normal); // 光照的位置法线
-            Debug.Assert(inter.Material != null);
-            var wi = Vector3f.Normalize(Reflect(woMirror, nMirror)); // 生成反射角
-            var rayMirror = new Ray(pMirror, wi); // 生成出射光线（间接光照光线）
-
-            var hitInter = Intersect(rayMirror);
-            if (hitInter.Happened)
-                return hitInter.Material.Emission;
-            return Vector3f.Zero;
-        }
-
         public bool Trace(Ray ray, List<GeometryObject> objects,
             out float tNear, out int index, out GeometryObject? hitObject)
         {
@@ -194,7 +175,7 @@ namespace Assignment7
         }
 
         // Implementation of Path Tracing
-        public Vector3f CastRay(Ray ray, int depth)
+        public Vector3f CastRay(Ray ray, int depth = 0)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
@@ -225,8 +206,8 @@ namespace Assignment7
                 if (!hitInter.Happened)
                     break; // 计算间接光照，出射光线未命中物体，结束
 
-                if (hitInter.Material.HasEmission() 
-                    && inter.Material.Type != MaterialType.Mirror )
+                if (hitInter.Material.HasEmission()
+                    && inter.Material.Type != MaterialType.Mirror)
                 {
                     break; // 计算间接光照，出射光线命中光源，结束
                 }
@@ -251,27 +232,6 @@ namespace Assignment7
             }
 
             return Ld + Li;
-        }
-
-        private Vector3f Reflect(Vector3f I, Vector3f N)
-        {
-            return I - 2 * Vector3f.Dot(I, N) * N;
-        }
-        private void ReplaceWithMirror(ref Intersection inter, ref Ray ray)
-        {
-            while (inter.Happened && inter.Material.Type == MaterialType.Mirror)
-            {
-                var pMirror = inter.Coords; // 光照的位置
-                var nMirror = Vector3f.Normalize(inter.Normal); // 光照的位置法线
-                var woMirror = Vector3f.Normalize(ray.direction); //光线入射角
-                Debug.Assert(inter.Material != null);
-                var wi = Vector3f.Normalize(Reflect(woMirror, nMirror)); // 生成反射角
-                var rayMirror = new Ray(pMirror, wi); // 生成出射光线（间接光照光线）
-
-                // 从镜面位置发出的光线与物体的交点
-                inter = Intersect(rayMirror);
-                ray = rayMirror;
-            }
         }
 
         private Vector3f directLight(in Intersection inter, in Vector3f wo, int depth)
@@ -317,7 +277,7 @@ namespace Assignment7
             return directLight;
         }
 
-        public virtual Vector3f CastRayRecursive(Ray ray, int depth)
+        public virtual Vector3f CastRayRecursive(Ray ray, int depth = 0)
         {
             // TODO Implement Path Tracing Algorithm here
 
@@ -368,5 +328,134 @@ namespace Assignment7
             return (Ld + Li) * factor;
         }
 
+        #region CastRayNew
+
+        public Vector3f CastRay2(Ray ray)
+        {
+            // 从像素发出的光线与物体的交点
+            Intersection inter = Intersect(ray);
+            if (!inter.Happened)
+                return Vector3f.Zero;
+
+            // 自发光
+            var Le = Emission(inter, ray.direction);
+
+            // 直接光照
+            var Ld = DirectLight2(inter, ray.direction);
+
+            // 间接光照
+            var Li = Vector3f.Zero;
+
+            // 按照概率计算间接光照
+            if (Random.Shared.NextSingle() < RussianRoulette)
+            {
+                //随机出射角
+                var wo = Vector3f.Normalize(inter.Material.Sample(ray.direction, inter.Normal));
+                //生成出射光线（间接光照光线）
+                var ray_i = new Ray(inter.Coords, wo);
+                Li = CastRay2(ray_i) 
+                    * Vector3f.Dot(wo, inter.Normal)
+                    * inter.Material.Eval(ray.direction, wo, inter.Normal) / inter.Material.Pdf(ray.direction, wo, inter.Normal) / RussianRoulette;
+            }
+
+            return Le + Ld + Li;
+        }
+
+        private Vector3f Emission(in Intersection inter, in Vector3f iw)
+        {
+            Debug.Assert(inter.Material != null);
+            return inter.Material.Emission;
+        }
+
+        private Vector3f DirectLight2(in Intersection inter, in Vector3f iw)
+        {
+            Debug.Assert(inter.Material != null);
+
+            // 镜面材质
+            if (inter.Material.Type == MaterialType.Mirror)
+            {
+                //计算反射光线
+                var pMirror = inter.Coords; // 光照的位置
+                var nMirror = inter.Normal; // 光照的位置法线
+                var reflect = Vector3f.Reflect(iw, nMirror); // 生成反射角
+                //判断反射光线是否与光源相交
+                var rayMirror = new Ray(pMirror, reflect); // 生成出射光线（间接光照光线）
+                var hitInter = Intersect(rayMirror);
+                if (hitInter.Happened)
+                {
+                    // 如果与光源相交，返回光源的颜色
+                    if (hitInter.Material.HasEmission())
+                    {
+                        return hitInter.Material.Emission;
+                    }
+                    // 如果没有相交，返回零向量
+                    return Vector3f.Zero;
+                }
+                //如果不相交，返回零向量
+                return Vector3f.Zero;
+            }
+
+            // 非镜面材质
+            {
+                // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
+                SampleLight(out var interLight, out var pdfLight);
+
+                // 交点法线nP
+                var nP = inter.Normal;
+                // 光源采样点法线nL
+                var nL = interLight.Normal;
+
+                var pLight = interLight.Coords;
+                var p = inter.Coords;
+                var distanceP2L = (pLight - p);
+                // 交点到光源的方向的单位向量 dirP2L
+                var dirP2L = Vector3f.Normalize(distanceP2L);
+
+                // 计算交点法线与光源方向的点积
+                var cosTheta = Vector3f.Dot(nP, dirP2L);
+                if (cosTheta < 0)
+                {
+                    // 如果点积小于0，说明光源在交点的背面，返回零向量
+                    return Vector3f.Zero;
+                }
+                // 计算光源法线与光源方向的点积
+                var cosThetaL = Vector3f.Dot(nL, -dirP2L);
+                if (cosThetaL < 0)
+                {
+                    // 如果点积小于0，说明光源在交点的背面，返回零向量
+                    return Vector3f.Zero;
+                }
+
+                // 判断采样点是否被遮挡
+                if (IsShadow(inter, interLight))
+                {
+                    return Vector3f.Zero;
+                }
+                // 如果没有被遮挡，计算直接光照
+
+                var emitLight = interLight.Emit;
+                var BRDF = inter.Material.Eval(iw, dirP2L, nP);
+
+                // 光照强度 = 光源强度 * BRDF * dot(nP,dirP2L) * dot(nL,-dirP2L) / 交点到光源距离的平方 / pdfLight
+                // 返回直接光照
+                return emitLight * BRDF * cosTheta * cosThetaL / distanceP2L.LengthSquared() / pdfLight;
+            }
+
+        }
+
+        private bool IsShadow(Intersection inter, Intersection interLight)
+        {
+            // 创建从交点到光源的光线
+            var p = inter.Coords;
+            var pLight = interLight.Coords;
+            var dir = Vector3f.Normalize(pLight - p);
+            var ray = new Ray(p, dir);
+            // 判断光线是否与其他物体相交
+            var hitInter = Intersect(ray);
+            // 相交距离小于到光源的距离，返回true
+            return (hitInter.Coords - pLight).LengthSquared() > Const.EPSILON;
+        }
+
+        #endregion CastRayNew
     }
 }

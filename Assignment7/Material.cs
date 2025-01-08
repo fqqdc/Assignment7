@@ -132,7 +132,7 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        return reflect(wi, N);
+                        return Vector3f.Reflect(wi, N);
                     }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
@@ -160,9 +160,10 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        if (wo == reflect(wi, N))
-                            return 1f;
-                        return 0f;
+                        if (Vector3f.Dot(wo, N) > 0.0f)
+                            return 1;
+                        else
+                            return 0.0f;
                     }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
@@ -174,7 +175,7 @@ namespace Assignment7
                             return 0.0f;
                     }
             }
-            return float.NaN;
+            throw new NotSupportedException();
         }
 
         // given a ray, calculate the contribution of this ray

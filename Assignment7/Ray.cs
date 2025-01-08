@@ -17,7 +17,7 @@ namespace Assignment7
         public Ray(in Vector3f ori, in Vector3f dir, double _t = 0.0)
         {
             origin = ori;
-            direction = dir;
+            direction = Vector3f.Normalize(dir);
             t = _t;
 
             direction_inv = new(1 / direction.X, 1 / direction.Y, 1 / direction.Z);

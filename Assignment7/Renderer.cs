@@ -72,7 +72,7 @@ namespace Assignment7
 
                         // Don't forget to normalize this direction!
                         Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
-                        framebuffer[index] = scene.CastRay(new(eye_pos, dir), 0);
+                        framebuffer[index] = scene.CastRay2(new(eye_pos, dir));
                         index += 1;
                     }
                 }
@@ -202,7 +202,7 @@ namespace Assignment7
                         Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
 
                         int index = i * spp + subIndex;
-                        rowbuffer[index] = scene.CastRay(new(eye_pos, dir), 0);
+                        rowbuffer[index] = scene.CastRay2(new(eye_pos, dir));
                     }
                 });
 
@@ -249,7 +249,7 @@ namespace Assignment7
             using Context context = Context.Create(builder => builder.Default().EnableAlgorithms());
 
             Device device = context.GetCPUDevice(0);
-            if(!preferCPU)
+            if (!preferCPU)
                 device = context.Devices.OrderByDescending(d => d.MaxNumThreads).First();
 
             using Accelerator accelerator = device.CreateAccelerator(context);
