@@ -5,7 +5,7 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace Structs
 {
-    public struct BVHAccel
+    public struct BVHAccelGpu
     {
         public required int RootIndex;
         public required ArrayView<BVHNode> Nodes;

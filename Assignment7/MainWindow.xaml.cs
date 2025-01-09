@@ -23,7 +23,7 @@ namespace Assignment7
             Loaded += MainWindow_Loaded;
         }
 
-        const int SSLevel = 4; 
+        const int SSLevel = 32; 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             WindowState = WindowState.Maximized;

@@ -73,7 +73,7 @@ namespace Assignment7
 
                         // Don't forget to normalize this direction!
                         Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
-                        framebuffer[index] = scene.CastRay2(new(eye_pos, dir));
+                        framebuffer[index] = scene.CastRayRecursive(new(eye_pos, dir));
                         index += 1;
                     }
                 }
@@ -135,7 +135,7 @@ namespace Assignment7
                     // Don't forget to normalize this direction!
                     Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
 
-                    var _v = scene.CastRay(new(eye_pos, dir), 0);
+                    var _v = scene.CastRay(new(eye_pos, dir));
                     framebuffer[m] += Vector3f.Clamp(_v, Vector3f.Zero, Vector3f.One);
                 }
             });
@@ -204,7 +204,7 @@ namespace Assignment7
                         Vector3f dir = Vector3f.Normalize(new(-x, y, 1));
 
                         int index = i * spp + subIndex;
-                        rowbuffer[index] = scene.CastRay2(new(eye_pos, dir));
+                        rowbuffer[index] = scene.CastRay(new(eye_pos, dir));
                     }
                 });
 
@@ -312,7 +312,7 @@ namespace Assignment7
             return colorDate;
         }
 
-        private void RenderKernel(Index1D m, Structs.RendererParameter parameter, ArrayView<Structs.Random> rngView, Structs.BVHAccel bvh, ArrayView<Vector3f> output)
+        private void RenderKernel(Index1D m, Structs.RendererParameter parameter, ArrayView<Structs.Random> rngView, Structs.BVHAccelGpu bvh, ArrayView<Vector3f> output)
         {
             var (scene, ssLevel, eye_pos, j) = (parameter.scene, parameter.ssLevel, parameter.eye_pos, parameter.j);
             ref Structs.Random rng = ref rngView[m];
@@ -334,7 +334,7 @@ namespace Assignment7
             output[m] = Structs.SceneContext.CastRay(new(eye_pos, dir), bvh, scene, ref rng);
         }
 
-        private void PreBVHAccel(in Accelerator accelerator, in Scene scene, out Structs.BVHAccel bvh)
+        private void PreBVHAccel(in Accelerator accelerator, in Scene scene, out Structs.BVHAccelGpu bvh)
         {
             Structs.BVHAccelBulder bVHAccelBulder = new();
             Structs.MeshTriangleParameterBuilder parameterBuilder = new();
@@ -344,11 +344,11 @@ namespace Assignment7
 
         private Structs.Random[] CreateRandoms(int number)
         {
-            System.Random random = new();
+            var rand = System.Random.Shared;
             var objsRandom = new Structs.Random[number];
             for (int i = 0; i < number; i++)
             {
-                objsRandom[i] = new(((uint)random.Next()) | ((ulong)random.Next() << 32));
+                objsRandom[i] = new((ulong)rand.NextInt64());
             }
             return objsRandom;
         }

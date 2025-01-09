@@ -13,7 +13,7 @@ namespace Structs
         private List<Triangle> lstTriangle = new();
         private Dictionary<Assignment7.Material, int> dictMaterial2Id = new();
 
-        public BVHAccel Build(MeshTriangleParameter[] meshTriangles, in List<Material> lstMaterial, in Accelerator accelerator)
+        public BVHAccelGpu Build(MeshTriangleParameter[] meshTriangles, in List<Material> lstMaterial, in Accelerator accelerator)
         {
             var rootIndex = recursiveBuildFromMeshTriangle(meshTriangles);
 

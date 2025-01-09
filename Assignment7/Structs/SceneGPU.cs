@@ -25,7 +25,7 @@ namespace Structs
             Height = h;
         }
 
-        public static Vector3f CastRay(in Ray ray, in BVHAccel bvh, in SceneContext scene, ref Structs.Random rng)
+        public static Vector3f CastRay(in Ray ray, in BVHAccelGpu bvh, in SceneContext scene, ref Structs.Random rng)
         {
             // TODO Implement Path Tracing Algorithm here
 
@@ -86,7 +86,7 @@ namespace Structs
             return Ld + Li;
         }
 
-        private static Vector3f directLight(in Intersection inter, in Vector3f wo, in BVHAccel bvh, ref Random rng)
+        private static Vector3f directLight(in Intersection inter, in Vector3f wo, in BVHAccelGpu bvh, ref Random rng)
         {
             var directLight = Vector3f.Zero;
 
@@ -128,12 +128,12 @@ namespace Structs
             return directLight;
         }
 
-        public static Intersection Intersect(in Ray ray, in BVHAccel bvh)
+        public static Intersection Intersect(in Ray ray, in BVHAccelGpu bvh)
         {
             return bvh.Intersect(ray);
         }
 
-        public static void SampleLight(out Intersection pos, out float pdf, in BVHAccel bvh, ref Random rng)
+        public static void SampleLight(out Intersection pos, out float pdf, in BVHAccelGpu bvh, ref Random rng)
         {
             var nodes = bvh.Nodes;
             var meshIdxes = bvh.MeshIndexes;

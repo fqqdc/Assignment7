@@ -55,7 +55,7 @@ namespace Assignment7
             Height = h;
         }
 
-        public void Add(GeometryObject @object) { objects.Add(@object); }
+        public void Add(GeometryObject obj) { objects.Add(obj); }
         public void Add(Light light) { lights.Add(light); }
 
         // Compute refraction direction using Snell's law
@@ -164,7 +164,7 @@ namespace Assignment7
             float emit_area_sum = 0;
             for (int k = 0; k < objects.Count; ++k)
             {
-                if (objects[k] is MeshTriangle mesh 
+                if (objects[k] is MeshTriangle mesh
                     && mesh.Material.Type == MaterialType.Mirror)
                 {
                     foreach (var t in mesh.Triangles)
@@ -174,7 +174,7 @@ namespace Assignment7
                             triangles.Add(t);
                             emit_area_sum += t.Area;
                         }
-                    }                    
+                    }
                 }
             }
             float fullArea = emit_area_sum;
@@ -212,163 +212,55 @@ namespace Assignment7
             return (hitObject != null);
         }
 
-        // Implementation of Path Tracing
-        public Vector3f CastRay(Ray ray, int depth = 0)
+        public Vector3f CastRay(Ray ray)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
             if (!inter.Happened)
-                return BackgroundColor;
-
-            // 直接光照
-            var Ld = directLight(inter, ray.direction, depth);
-
-            // 间接光照
-            var Fd = Vector3f.One; // 间接光照系数
-            var wo = Vector3f.Normalize(ray.direction); //光线入射角
-            var Li = Vector3f.Zero; // 间接光照
-            // 按照概率计算间接光照
-            while (Global.GetRandomFloat() < RussianRoulette)
-            {
-                depth += 1;
-
-                var p = inter.Coords; // 待计算间接光照的位置
-                var n = Vector3f.Normalize(inter.Normal); // 待计算间接光照的位置法线
-
-                Debug.Assert(inter.Material != null);
-                var wi = Vector3f.Normalize(inter.Material.Sample(wo, n)); //(随机)生成出射角
-                var ray_i = new Ray(p, wi); // 生成出射光线（间接光照光线）
-
-                var hitInter = Intersect(ray_i); // 出射光线与其他物体交点（间接光照发光点）
-                //ReplaceWithMirror(ref hitInter, ref ray_i);
-                if (!hitInter.Happened)
-                    break; // 计算间接光照，出射光线未命中物体，结束
-
-                if (hitInter.Material.HasEmission()
-                    && inter.Material.Type != MaterialType.Mirror)
-                {
-                    break; // 计算间接光照，出射光线命中光源，结束
-                }
-
-                // 间接光线的直接光照部分
-                var Li_d = directLight(hitInter, ray_i.direction, depth);
-
-                if (inter.Material.Type != MaterialType.Mirror)
-                {
-                    var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
-                    var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
-
-                    //更新间接光照系数
-                    Fd *= f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette;
-                }
-
-                Li += Li_d * Fd;
-
-                // 下个循环计算：间接光线的间接光照部分
-                inter = hitInter;
-                wo = wi;
-            }
-
-            return Ld + Li;
-        }
-
-        private Vector3f directLight(in Intersection inter, in Vector3f wo, int depth)
-        {
-            var directLight = Vector3f.Zero;
-
-            Debug.Assert(inter.Material != null);
-            if (inter.Material.HasEmission())
-            {
-                return inter.Material.Emission;
-            }
-
-            // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
-            SampleLight(out var interLight, out var pdfLight);
-
-            var p = inter.Coords;
-            var n = Vector3f.Normalize(inter.Normal);
-
-            var pLight = interLight.Coords;
-            var nLight = interLight.Normal;
-            var emitLight = interLight.Emit;
-
-            var distanceP2L = (pLight - p);
-            var dirP2L = Vector3f.Normalize(distanceP2L);
-
-            // Shoot a ray from p to x(Light)            
-            Ray rayP2L = new(p, dirP2L);
-            Intersection interP2L = Intersect(rayP2L); ;
-            // 如果关于没被遮挡
-            if ((interP2L.Coords - pLight).LengthSquared() < Const.EPSILON)
-            //if (interP2L.Distance - distanceP2L.Length() > -Const.EPSILON)
-            {
-                //GAMES101_Lecture_16.pdf P41
-                //Lo = ∫A Li(x,ωi) fr(x,ωi,ωo) cosθ cosθ' /(pLight-p)^2 dA
-
-                directLight = emitLight * inter.Material.Eval(wo, rayP2L.direction, n)
-                    * Vector3f.Dot(dirP2L, n) // cosθ p点法线与光源的夹角
-                    * Vector3f.Dot(-dirP2L, nLight) // cosθ' 光源法线与光线的夹角
-                    / distanceP2L.LengthSquared() // 光源到p点距离的平方
-                    / pdfLight; // 1/dA
-            }
-
-            return directLight;
-        }
-
-        public virtual Vector3f CastRayRecursive(Ray ray, int depth = 0)
-        {
-            // TODO Implement Path Tracing Algorithm here
-
-            // 从像素发出的光线与物体的交点
-            Intersection inter = Intersect(ray);
-            if (!inter.Happened)
-                return BackgroundColor;
-
-            // 直接光照
-            var Ld = directLight(inter, ray.direction, depth);
-
-            // 间接光照
-            var wo = Vector3f.Normalize(ray.direction); //光线入射角
-            var Li = indirectLightRecursive(inter, wo, depth);
-
-            return Ld + Li;
-        }
-
-        private Vector3f indirectLightRecursive(in Intersection inter, in Vector3f wo, int depth)
-        {
-            // 按照概率计算间接光照
-            if (Global.GetRandomFloat() > RussianRoulette)
                 return Vector3f.Zero;
 
-            var p = inter.Coords; // 待计算间接光照的位置
-            var n = Vector3f.Normalize(inter.Normal); // 待计算间接光照的位置法线
+            // 自发光
+            var Le = Emission(inter, ray.direction);
 
-            Debug.Assert(inter.Material != null);
-            var wi = Vector3f.Normalize(inter.Material.Sample(wo, n)); //随机出射角
-            var ray_i = new Ray(p, wi); // 随机随机生成出射光线（间接光照光线）
+            // 直接光照
+            var Ld = DirectLight(inter, ray.direction);
 
-            var hitInter = Intersect(ray_i); // 出射光线与其他物体交点（间接光照发光点）
-            if (!hitInter.Happened)
-                return Vector3f.Zero; // 计算间接光照，出射光线未命中物体，结束
+            // 间接光照
+            var Li = Vector3f.Zero;
 
-            Debug.Assert(hitInter.Material != null);
-            if (hitInter.Material.HasEmission())
-                return Vector3f.Zero; // 计算间接光照，出射光线命中光源，结束
+            // 按照概率计算间接光照
+            // 间接光照系数
+            var Fd = Vector3f.One;
+            while (Random.Shared.NextSingle() < RussianRoulette)
+            {
+                Debug.Assert(float.IsNormal(Fd.X) && float.IsNormal(Fd.Y) && float.IsNormal(Fd.Z));
 
-            // 间接光线的直接光照部分
-            var Ld = directLight(hitInter, ray_i.direction, depth + 1);
-            var Li = indirectLightRecursive(hitInter, wi, depth + 1);
+                //随机出射角
+                var wo = Vector3f.Normalize(inter.Material!.Sample(ray.direction, inter.Normal));
+                //生成出射光线（间接光照光线）
+                ray = new Ray(inter.Coords, wo);
+                var pdf = inter.Material.Pdf(ray.direction, wo, inter.Normal);
 
-            var f_r = inter.Material.Eval(wo, wi, n); // 材质光照系数
-            var pdf = inter.Material.Pdf(wo, wi, n); // 密度函数
-            var factor = f_r * Vector3f.Dot(wi, n) / pdf / RussianRoulette; // 光照系数
+                if (pdf < Const.EPSILON)
+                    break;
 
-            return (Ld + Li) * factor;
+
+                Fd = Fd * Vector3f.Dot(wo, inter.Normal)
+                            * inter.Material.Eval(ray.direction, wo, inter.Normal)
+                            / pdf
+                            / RussianRoulette;
+
+                inter = Intersect(ray);
+                if (!inter.Happened)
+                    break;
+
+                Li += DirectLight(inter, ray.direction) * Fd;
+            }
+
+            return Le + Ld + Li;
         }
 
-        #region CastRayNew
-
-        public Vector3f CastRay2(Ray ray, bool includeEmission = true)
+        public Vector3f CastRayRecursive(Ray ray, bool includeEmission = true)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
@@ -377,11 +269,11 @@ namespace Assignment7
 
             // 自发光
             var Le = Vector3f.Zero;
-            if(includeEmission)
+            if (includeEmission)
                 Le = Emission(inter, ray.direction);
 
             // 直接光照
-            var Ld = DirectLight2(inter, ray.direction);
+            var Ld = DirectLight(inter, ray.direction);
 
             // 间接光照
             var Li = Vector3f.Zero;
@@ -395,9 +287,9 @@ namespace Assignment7
                 var ray_i = new Ray(inter.Coords, wo);
                 var pdf = inter.Material.Pdf(ray.direction, wo, inter.Normal);
 
-                if (pdf > 0)
+                if (pdf > Const.EPSILON)
                 {
-                    Li = CastRay2(ray_i, false)
+                    Li = CastRayRecursive(ray_i, false)
                                 * Vector3f.Dot(wo, inter.Normal)
                                 * inter.Material.Eval(ray.direction, wo, inter.Normal)
                                 / pdf
@@ -408,13 +300,14 @@ namespace Assignment7
 
             return Le + Ld + Li;
         }
+
         private Vector3f Emission(in Intersection inter, in Vector3f iw)
         {
             Debug.Assert(inter.Material != null);
             return inter.Material.Emission;
         }
 
-        private Vector3f DirectLight2(in Intersection inter, in Vector3f iw)
+        private Vector3f DirectLight(in Intersection inter, in Vector3f iw)
         {
             Debug.Assert(inter.Material != null);
 
@@ -450,7 +343,7 @@ namespace Assignment7
             return Ll + Lm;
         }
 
-        private Vector3f DoSampleMirror(Intersection inter)
+        private Vector3f DoSampleMirror(in Intersection inter)
         {
             // 对场景中的镜面进行采样，interMirror镜面位置；pdfMirror镜面密度函数
             SampleMirror(inter, out var interMirror, out var pdfMirror);
@@ -473,7 +366,7 @@ namespace Assignment7
                 // 如果点积小于0，说明光源在交点的背面，返回零向量
                 return Vector3f.Zero;
             }
-            
+
 
             // 判断采样点是否被遮挡
             if (IsShadow(inter, interMirror))
@@ -507,7 +400,7 @@ namespace Assignment7
             return Vector3f.Zero;
         }
 
-        private Vector3f DoSampleLight(Intersection inter, Vector3f iw)
+        private Vector3f DoSampleLight(in Intersection inter, in Vector3f iw)
         {
             // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
             SampleLight(out var interLight, out var pdfLight);
@@ -553,7 +446,7 @@ namespace Assignment7
             return emitLight * BRDF * cosTheta * cosThetaL / distanceP2L.LengthSquared() / pdfLight;
         }
 
-        private bool IsShadow(Intersection inter, Intersection interLight)
+        private bool IsShadow(in Intersection inter, in Intersection interLight)
         {
             // 创建从交点到光源的光线
             var p = inter.Coords;
@@ -566,6 +459,5 @@ namespace Assignment7
             return (hitInter.Coords - pLight).LengthSquared() > Const.EPSILON;
         }
 
-        #endregion CastRayNew
     }
 }

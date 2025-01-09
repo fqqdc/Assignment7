@@ -1,25 +1,24 @@
-﻿using System;
+﻿using ILGPU;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Printing;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.InteropServices;
 
 namespace Assignment7
 {
-    public class BVHBuildNode
+    public struct BVHNode
     {
-        public Bounds3 Bounds { get; set; }
-
-        public BVHBuildNode? Left { get; set; }
-        public BVHBuildNode? Right { get; set; }
-        public GeometryObject? Object { get; set; }
-        public float Area { get; set; }
-
-        //int splitAxis = 0;
-        //int firstPrimOffset = 0;
-        //int nPrimitives = 0;
+        public Bounds3 Bounds;
+        public int LeftIndex;
+        public int RightIndex;
+        public float Area;
+        public GeometryObject? Object;
 
         // BVHBuildNode Public Methods
-        public BVHBuildNode()
+        public BVHNode()
         {
             Bounds = new();
         }
@@ -33,12 +32,13 @@ namespace Assignment7
         // BVHAccel Public Types
         public enum SplitMethod { BVH, SAH };
 
-        BVHBuildNode? root;
-
         // BVHAccel Private Data
         private readonly int maxPrimsInNode;
         private readonly SplitMethod splitMethod;
-        GeometryObject[] primitives;
+        Memory<GeometryObject> primitives = Memory<GeometryObject>.Empty;
+
+        public readonly int RootIndex = -1;
+        public readonly List<BVHNode> NodeList = [];
 
         public BVHAccel(IEnumerable<GeometryObject> p, int maxPrimsInNode,
                    SplitMethod splitMethod)
@@ -48,12 +48,12 @@ namespace Assignment7
             primitives = p.ToArray();
 
             Stopwatch stopwatch = new();
-            if (!primitives.Any())
+            if (primitives.Length == 0)
                 return;
 
-            root = splitMethod switch
+            RootIndex = splitMethod switch
             {
-                SplitMethod.BVH => recursiveBuildByBVH(primitives),
+                SplitMethod.BVH => RecursiveBuildByBVH(primitives.Span),
                 SplitMethod.SAH => throw new NotImplementedException(),
                 _ => throw new NotImplementedException(),
             };
@@ -66,34 +66,40 @@ namespace Assignment7
         public BVHAccel(IEnumerable<GeometryObject> p)
             : this(p, 1, SplitMethod.BVH) { }
 
-        public BVHBuildNode recursiveBuildByBVH(Span<GeometryObject> objects)
+        public int RecursiveBuildByBVH(Span<GeometryObject> objects)
         {
-            BVHBuildNode node = new();
+            NodeList.Add(new BVHNode());
+            int nodeIndex = NodeList.Count - 1;
+            var nodes = CollectionsMarshal.AsSpan(NodeList);
+
 
             // Compute bounds of all primitives in BVH node
-            Bounds3 bounds = new();
+            Bounds3 bounds = default;
             for (int i = 0; i < objects.Length; ++i)
                 bounds = Bounds3.Union(bounds, objects[i].GetBounds());
             if (objects.Length == 1)
             {
+                ref var node = ref nodes[nodeIndex];
                 // Create leaf _BVHBuildNode_
                 node.Bounds = objects[0].GetBounds();
                 node.Object = objects[0];
                 node.Area = objects[0].Area;
-                return node;
             }
             else if (objects.Length == 2)
             {
-                node.Left = recursiveBuildByBVH(objects[0..1]);
-                node.Right = recursiveBuildByBVH(objects[1..2]);
+                var leftIndex = RecursiveBuildByBVH(objects.Slice(0, 1));
+                var rightIndex = RecursiveBuildByBVH(objects.Slice(1, 1));
 
-                node.Bounds = Bounds3.Union(node.Left.Bounds, node.Right.Bounds);
-                node.Area = node.Left.Area + node.Right.Area;
-                return node;
+                nodes = CollectionsMarshal.AsSpan(NodeList);
+                ref var node = ref nodes[nodeIndex];
+                node.LeftIndex = leftIndex;
+                node.RightIndex = rightIndex;
+                node.Bounds = Bounds3.Union(nodes[node.LeftIndex].Bounds, nodes[node.RightIndex].Bounds);
+                node.Area = nodes[node.LeftIndex].Area + nodes[node.RightIndex].Area;
             }
             else
             {
-                Bounds3 centroidBounds = new();
+                Bounds3 centroidBounds = default;
                 for (int i = 0; i < objects.Length; ++i)
                     centroidBounds =
                         Bounds3.Union(centroidBounds, objects[i].GetBounds().Centroid());
@@ -112,38 +118,42 @@ namespace Assignment7
                         break;
                 }
 
-                int middling = objects.Length / 2;
+                int mid = objects.Length / 2;
 
-                var r = 0..1;
-                var s = objects[r];
-
-                var leftshapes = objects[0..middling];
-                var rightshapes = objects[middling..];
+                var leftshapes = objects[0..mid];
+                var rightshapes = objects[mid..];
 
                 Debug.Assert(objects.Length == (leftshapes.Length + rightshapes.Length));
 
-                node.Left = recursiveBuildByBVH(leftshapes);
-                node.Right = recursiveBuildByBVH(rightshapes);
+                var leftIndex = RecursiveBuildByBVH(leftshapes);
+                var rightIndex = RecursiveBuildByBVH(rightshapes);
 
-                node.Bounds = Bounds3.Union(node.Left.Bounds, node.Right.Bounds);
-                node.Area = node.Left.Area + node.Right.Area;
+                nodes = CollectionsMarshal.AsSpan(NodeList);
+                ref var node = ref nodes[nodeIndex];
+                node.LeftIndex = leftIndex;
+                node.RightIndex = rightIndex;
+                node.Bounds = Bounds3.Union(nodes[node.LeftIndex].Bounds, nodes[node.RightIndex].Bounds);
+                node.Area = nodes[node.LeftIndex].Area + nodes[node.RightIndex].Area;
             }
 
-            return node;
+            return nodeIndex;
         }
 
         public Intersection Intersect(in Ray ray)
         {
             Intersection isect = new();
-            if (root == null)
+            if (RootIndex == -1)
                 return isect;
-            isect = GetIntersection(root, ray);
+            isect = GetIntersection(RootIndex, ray);
             return isect;
         }
 
-        public Intersection GetIntersection(BVHBuildNode? node, in Ray ray)
+        public Intersection GetIntersection(int nodeIndex, in Ray ray)
         {
-            if (node == null) throw new NullReferenceException();
+            Debug.Assert(nodeIndex >= 0 && nodeIndex < NodeList.Count);
+
+            var nodes = CollectionsMarshal.AsSpan(NodeList);
+            ref readonly var node = ref nodes[nodeIndex];
 
             // TODO Traverse the BVH to find intersection
             bool[] dirIsNeg = new bool[3];
@@ -156,14 +166,17 @@ namespace Assignment7
             if (node.Object != null)
                 return node.Object.GetIntersection(ray);
 
-            Intersection hit1 = GetIntersection(node.Left, ray);
-            Intersection hit2 = GetIntersection(node.Right, ray);
+            Intersection hit1 = GetIntersection(node.LeftIndex, ray);
+            Intersection hit2 = GetIntersection(node.RightIndex, ray);
 
             return hit1.Distance < hit2.Distance ? hit1 : hit2;
         }
 
-        public void GetSample(BVHBuildNode node, float p, out Intersection pos, out float pdf)
+        public void GetSample(int nodeIndex, float p, out Intersection pos, out float pdf)
         {
+            var nodes = CollectionsMarshal.AsSpan(NodeList);
+            ref readonly var node = ref nodes[nodeIndex];
+
             if (node.Object != null)
             {
                 node.Object.Sample(out pos, out pdf);
@@ -171,17 +184,20 @@ namespace Assignment7
                 return;
             }
 
-            Debug.Assert(node.Left != null && node.Right != null);
-            if (p < node.Left.Area) GetSample(node.Left, p, out pos, out pdf);
-            else GetSample(node.Right, p - node.Left.Area, out pos, out pdf);
+            Debug.Assert(node.LeftIndex != -1 && node.RightIndex != -1);
+            if (p < nodes[node.LeftIndex].Area) GetSample(node.LeftIndex, p, out pos, out pdf);
+            else GetSample(node.RightIndex, p - nodes[node.LeftIndex].Area, out pos, out pdf);
         }
 
         public void Sample(out Intersection pos, out float pdf)
         {
-            Debug.Assert(root != null);
+            Debug.Assert(RootIndex != -1);
+
+            var nodes = CollectionsMarshal.AsSpan(NodeList);
+            ref readonly var root = ref nodes[RootIndex];
 
             float p = MathF.Sqrt(Global.GetRandomFloat()) * root.Area;
-            GetSample(root, p, out pos, out pdf);
+            GetSample(RootIndex, p, out pos, out pdf);
             pdf /= root.Area;
         }
     }
