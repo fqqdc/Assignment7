@@ -34,12 +34,12 @@ namespace Assignment7
         {
             get
             {
-                return 1 / (1 - RussianRoulette);
+                return RussianRoulette / (1 - RussianRoulette);
             }
             init
             {
-                if (value < 1) throw new ArgumentOutOfRangeException("value");
-                RussianRoulette = (value - 1) / value;
+                if (value < 0) throw new ArgumentOutOfRangeException("value");
+                RussianRoulette = value / (1 + value);
             }
         }
 
@@ -169,7 +169,7 @@ namespace Assignment7
                 {
                     foreach (var t in mesh.Triangles)
                     {
-                        if (Vector3f.Dot(t.Normal, -pInter.Normal) > 0)
+                        if (Vector3f.Dot(t.Normal, -pInter.Normal) > Const.EPSILON)
                         {
                             triangles.Add(t);
                             emit_area_sum += t.Area;
@@ -177,6 +177,7 @@ namespace Assignment7
                     }                    
                 }
             }
+            float fullArea = emit_area_sum;
             float p = Global.GetRandomFloat() * emit_area_sum;
             emit_area_sum = 0;
             foreach (var t in triangles)
@@ -185,7 +186,7 @@ namespace Assignment7
                 if (p <= emit_area_sum)
                 {
                     t.Sample(out sInter, out sPdf);
-                    sPdf = 1 / t.Area;
+                    sPdf *= t.Area / fullArea;
                     break;
                 }
             }
@@ -467,18 +468,12 @@ namespace Assignment7
 
             // 计算交点法线与光源方向的点积
             var cosTheta = Vector3f.Dot(nP, dirP2M);
-            if (cosTheta <= 0)
+            if (cosTheta <= Const.EPSILON)
             {
                 // 如果点积小于0，说明光源在交点的背面，返回零向量
                 return Vector3f.Zero;
             }
-            // 计算光源法线与光源方向的点积
-            var cosThetaL = Vector3f.Dot(nM, -dirP2M);
-            if (cosThetaL <= 0)
-            {
-                // 如果点积小于0，说明光源在交点的背面，返回零向量
-                return Vector3f.Zero;
-            }
+            
 
             // 判断采样点是否被遮挡
             if (IsShadow(inter, interMirror))
@@ -494,7 +489,20 @@ namespace Assignment7
             // 如果与光源相交，返回光源的颜色
             if (hitInter.Happened && hitInter.Material!.HasEmission())
             {
-                return hitInter.Material.Emission * cosTheta * cosThetaL / distanceP2M.LengthSquared() / pdfMirror;
+                var pLight = hitInter.Coords;
+                var nLight = hitInter.Normal;
+
+                // 计算光源法线与光源方向的点积
+                var cosThetaL = Vector3f.Dot(nLight, -rayReflect.direction);
+                if (cosThetaL <= Const.EPSILON)
+                {
+                    // 如果点积小于0，说明光源在交点的背面，返回零向量
+                    return Vector3f.Zero;
+                }
+                var distanceM2L = (pLight - pMirror);
+                var disranceP2L = distanceP2M.Length() + distanceM2L.Length();
+
+                return hitInter.Material.Emission * cosTheta * cosThetaL / (disranceP2L * disranceP2L) / pdfMirror;
             }
             return Vector3f.Zero;
         }

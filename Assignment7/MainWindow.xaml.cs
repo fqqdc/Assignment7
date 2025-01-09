@@ -23,6 +23,7 @@ namespace Assignment7
             Loaded += MainWindow_Loaded;
         }
 
+        const int SSLevel = 4; 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             WindowState = WindowState.Maximized;
@@ -38,13 +39,13 @@ namespace Assignment7
             var renderer = new Renderer();
             WriteableBitmap wb = new(scene.Width, scene.Height,
                 96, 96, PixelFormats.Bgr24, null);
-            //data = await Task.Run(() => renderer.Render(scene, 1)); //单线程 像素采样率x，每个像素采样x^2次
-            data = await Task.Run(() => renderer.RenderParallel(scene, 32)); //多线程 像素采样率x，每个像素采样x^2次
-            //data = await Task.Run(() => renderer.RenderGPU(scene, 16, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
+            //data = await Task.Run(() => renderer.Render(scene, SSLevel)); //单线程 像素采样率x，每个像素采样x^2次
+            data = await Task.Run(() => renderer.RenderParallel(scene, SSLevel)); //多线程 像素采样率x，每个像素采样x^2次
+            //data = await Task.Run(() => renderer.RenderGPU(scene, SSLevel, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
 
             //var RenderSingleStepByFrame = async () =>
             //{
-            //    int ssLevel = 16;
+            //    int ssLevel = SSLevel;
 
             //    int spp = ssLevel * ssLevel;
             //    Vector3f[] framebuffer = new Vector3f[scene.Width * scene.Height];
@@ -72,7 +73,7 @@ namespace Assignment7
         Scene scene = new(512, 512) // 分辨率
         {
             //RussianRoulette = .8f, // 光线反射概率
-            ExpectedTime = 5, // 光线反射次数期望
+            ExpectedTime = 3, // 光线反射次数期望
             //BackgroundColor = new(0),
         };
         void InitializeScene()
@@ -123,7 +124,7 @@ namespace Assignment7
         #region UI等方法
         void SaveImage(BitmapSource bs)
         {
-            using var fs = new System.IO.FileStream("output.png", System.IO.FileMode.Create);
+            using var fs = new System.IO.FileStream($"output {scene.Width}x{scene.Height} {(int)scene.ExpectedTime}times {SSLevel * SSLevel}spp {DateTime.Now.ToString("yyMMddHHmmss")}.png", System.IO.FileMode.Create);
             BitmapEncoder encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(bs));
             encoder.Save(fs);

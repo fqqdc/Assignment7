@@ -1,13 +1,6 @@
-﻿using Assignment6;
-using Structs;
+﻿using Structs;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Documents;
 using Vector3f = System.Numerics.Vector3;
 
 namespace Assignment7
