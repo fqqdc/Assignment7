@@ -10,7 +10,6 @@ namespace Assignment7
 {
     public struct Intersection
     {
-        [MemberNotNull(nameof(Material))]
         public bool Happened { get; set; }
         public Vector3f Coords;
         //public Vector3f tcoords;

@@ -1,16 +1,12 @@
-﻿using Assignment6;
-using System;
+﻿using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Vector3f = System.Numerics.Vector3;
-using System.Threading;
-using System.Linq;
-using System.IO;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Assignment7
 {
@@ -26,21 +22,6 @@ namespace Assignment7
 
             Loaded += MainWindow_Loaded;
         }
-
-        void RandomSort(int[] array)
-        {
-            Random random = new Random();
-            int last = array.Length - 1;
-            for (int i = 0; i < array.Length; i++)
-            {
-                int randomIndex = random.Next(array.Length);
-                int temp = array[last];
-                array[last] = array[randomIndex];
-                array[randomIndex] = temp;
-                last--;//位置改变
-            }
-        }
-
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -58,7 +39,7 @@ namespace Assignment7
             WriteableBitmap wb = new(scene.Width, scene.Height,
                 96, 96, PixelFormats.Bgr24, null);
             //data = await Task.Run(() => renderer.Render(scene, 1)); //单线程 像素采样率x，每个像素采样x^2次
-            data = await Task.Run(() => renderer.RenderParallel(scene, 8)); //多线程 像素采样率x，每个像素采样x^2次
+            data = await Task.Run(() => renderer.RenderParallel(scene, 32)); //多线程 像素采样率x，每个像素采样x^2次
             //data = await Task.Run(() => renderer.RenderGPU(scene, 16, preferCPU: false)); //ILGPU库 像素采样率x，每个像素采样x^2次
 
             //var RenderSingleStepByFrame = async () =>
@@ -110,16 +91,16 @@ namespace Assignment7
             Material mirror = new Material(MaterialType.Mirror, new(0.0f)) { Ior = 40, Kd = new(0) };
 
             MeshTriangle floor = new("models/cornellbox/floor.obj", white);
-            MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", white);
+            MeshTriangle shortbox = new("models/cornellbox/shortbox.obj", mirror);
             MeshTriangle tallbox = new("models/cornellbox/tallbox.obj", mirror);
             MeshTriangle left = new("models/cornellbox/left.obj", red);
             MeshTriangle right = new("models/cornellbox/right.obj", green);
             MeshTriangle light_ = new("models/cornellbox/light.obj", light);
 
-            MeshTriangle shortbox2 = new("models/cornellbox/shortbox2.obj", mirror);
+            //MeshTriangle shortbox2 = new("models/cornellbox/shortbox2.obj", mirror);
             //MeshTriangle pad = new("models/cornellbox/shortpad.obj", mt: white);
 
-            MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
+            //MeshTriangle bunny = new("models/bunny/bunny.obj", white, new(300, 0, 300), new(2000));
             //Sphere sphere1 = new(new(170, 110, 350), 110, mirror);
             //Sphere sphere2 = new(new(380, 90, 450), 90, mirror);
 

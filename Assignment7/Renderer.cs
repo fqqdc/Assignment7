@@ -36,6 +36,7 @@ namespace Assignment7
             return (x + baseValue + levelInc * (subIndex % ssLevel), y + baseValue + levelInc * (subIndex / ssLevel));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static (float subX, float subY) CalcSubXY(int x, int y)
         {
             return (x + Global.GetRandomFloat(), y + Global.GetRandomFloat());
@@ -166,6 +167,7 @@ namespace Assignment7
             int spp = ssLevel * ssLevel;
 
             byte[] colorDate = new byte[scene.Width * scene.Height * 3];
+            //Vector3f[] rowbuffer = new Vector3f[scene.Width * spp];
             Vector3f[] rowbuffer = new Vector3f[scene.Width * spp];
 
             float scale = MathF.Tan(deg2rad((float)scene.Fov * 0.5f));
@@ -212,19 +214,19 @@ namespace Assignment7
                     for (int index = range.Item1; index < range.Item2; index++)
                     {
                         var rowDate = colorDate.AsSpan(j * scene.Width * 3, scene.Width * 3);
-                        var _v = rowbuffer.AsSpan((index * spp)..(index * spp + spp));
-                        Vector3f v = Vector3f.Zero;
-                        for (int i = 0; i < _v.Length; i++)
-                        {
-                            v += Vector3f.Clamp(_v[i], Vector3f.Zero, Vector3f.One);
-                            //v += _v[i]; // TEST
-                        }
-                        v /= _v.Length;
-                        //v = Vector3f.Clamp(v, Vector3f.Zero, Vector3f.One); // TEST
 
-                        rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(v.X, 0.6f)); //R
-                        rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(v.Y, 0.6f)); //G
-                        rowDate[index * 3 + 0] = (byte)(255 * MathF.Pow(v.Z, 0.6f)); //B
+                        var pixelSamples = rowbuffer.AsSpan().Slice(index * spp, spp);
+                        Vector3f pixelAggr = Vector3f.Zero;
+                        foreach (var s in pixelSamples)
+                        {
+                            pixelAggr += s;
+                        }
+                        pixelAggr /= pixelSamples.Length;
+                        pixelAggr = Vector3f.Clamp(pixelAggr, Vector3f.Zero, Vector3f.One); // TEST
+
+                        rowDate[index * 3 + 2] = (byte)(255 * MathF.Pow(pixelAggr.X, 0.6f)); //R
+                        rowDate[index * 3 + 1] = (byte)(255 * MathF.Pow(pixelAggr.Y, 0.6f)); //G
+                        rowDate[index * 3 + 0] = (byte)(255 * MathF.Pow(pixelAggr.Z, 0.6f)); //B
                     }
                 });
 

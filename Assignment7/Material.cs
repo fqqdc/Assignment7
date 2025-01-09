@@ -2,6 +2,7 @@
 using Structs;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -148,8 +149,7 @@ namespace Assignment7
                         return toWorld(localRay, N);//转换到世界坐标
                     }
             }
-
-            return Vector3f.Zero;
+            throw new NotSupportedException();
         }
 
         // given a ray, calculate the PdF of this ray
@@ -160,19 +160,17 @@ namespace Assignment7
             {
                 case MaterialType.Mirror:
                     {
-                        if (Vector3f.Dot(wo, N) > 0.0f)
+                        if(Vector3f.Dot(wo, N) > 0.0f)
                             return 1;
-                        else
-                            return 0.0f;
+                        return 0;
                     }
                 case MaterialType.DIFFUSE:
                 case MaterialType.Microfacet:
                     {
+                        if(Vector3f.Dot(wo, N) > 0.0f)
                         // uniform sample probability 1 / (2 * PI)
-                        if (Vector3f.Dot(wo, N) > 0.0f)
                             return 0.5f / MathF.PI;
-                        else
-                            return 0.0f;
+                        return 0;
                     }
             }
             throw new NotSupportedException();
@@ -250,7 +248,7 @@ namespace Assignment7
                             return Vector3f.Zero;
                     }
             }
-            return Vector3f.Zero;
+            throw new NotSupportedException();
         }
         /// <summary>
         /// 法线分布函数 D

@@ -12,6 +12,7 @@ using System.Security.Permissions;
 using System.Diagnostics.Metrics;
 using Structs;
 using Random = System.Random;
+using ILGPU;
 
 namespace Assignment7
 {
@@ -150,6 +151,42 @@ namespace Assignment7
                         objects[k].Sample(out pos, out pdf);
                         break;
                     }
+                }
+            }
+        }
+
+        public void SampleMirror(in Intersection pInter, out Intersection sInter, out float sPdf)
+        {
+            List<Triangle> triangles = [];
+
+            sInter = new(); sPdf = 1f;
+
+            float emit_area_sum = 0;
+            for (int k = 0; k < objects.Count; ++k)
+            {
+                if (objects[k] is MeshTriangle mesh 
+                    && mesh.Material.Type == MaterialType.Mirror)
+                {
+                    foreach (var t in mesh.Triangles)
+                    {
+                        if (Vector3f.Dot(t.Normal, -pInter.Normal) > 0)
+                        {
+                            triangles.Add(t);
+                            emit_area_sum += t.Area;
+                        }
+                    }                    
+                }
+            }
+            float p = Global.GetRandomFloat() * emit_area_sum;
+            emit_area_sum = 0;
+            foreach (var t in triangles)
+            {
+                emit_area_sum += t.Area;
+                if (p <= emit_area_sum)
+                {
+                    t.Sample(out sInter, out sPdf);
+                    sPdf = 1 / t.Area;
+                    break;
                 }
             }
         }
@@ -330,7 +367,7 @@ namespace Assignment7
 
         #region CastRayNew
 
-        public Vector3f CastRay2(Ray ray)
+        public Vector3f CastRay2(Ray ray, bool includeEmission = true)
         {
             // 从像素发出的光线与物体的交点
             Intersection inter = Intersect(ray);
@@ -339,11 +376,8 @@ namespace Assignment7
 
             // 自发光
             var Le = Vector3f.Zero;
-            //Le = Emission(inter, ray.direction);
-            if (inter.Material.HasEmission())
-            {
-                return inter.Material.Emission;
-            }
+            if(includeEmission)
+                Le = Emission(inter, ray.direction);
 
             // 直接光照
             var Ld = DirectLight2(inter, ray.direction);
@@ -355,27 +389,24 @@ namespace Assignment7
             if (Random.Shared.NextSingle() < RussianRoulette)
             {
                 //随机出射角
-                var wo = Vector3f.Normalize(inter.Material.Sample(ray.direction, inter.Normal));
+                var wo = Vector3f.Normalize(inter.Material!.Sample(ray.direction, inter.Normal));
                 //生成出射光线（间接光照光线）
                 var ray_i = new Ray(inter.Coords, wo);
+                var pdf = inter.Material.Pdf(ray.direction, wo, inter.Normal);
 
-                if (inter.Material.Type != MaterialType.Mirror)
+                if (pdf > 0)
                 {
-                    var hitInter = Intersect(ray_i);
-                    if(hitInter.Happened && hitInter.Material.HasEmission())
-                    {
-                        return Ld;
-                    }
+                    Li = CastRay2(ray_i, false)
+                                * Vector3f.Dot(wo, inter.Normal)
+                                * inter.Material.Eval(ray.direction, wo, inter.Normal)
+                                / pdf
+                                / RussianRoulette;
                 }
-                
-                Li = CastRay2(ray_i) 
-                    * Vector3f.Dot(wo, inter.Normal)
-                    * inter.Material.Eval(ray.direction, wo, inter.Normal) / inter.Material.Pdf(ray.direction, wo, inter.Normal) / RussianRoulette;
+
             }
 
             return Le + Ld + Li;
         }
-
         private Vector3f Emission(in Intersection inter, in Vector3f iw)
         {
             Debug.Assert(inter.Material != null);
@@ -411,51 +442,107 @@ namespace Assignment7
             }
 
             // 非镜面材质
+            var Ll = DoSampleLight(inter, iw);
+
+            var Lm = DoSampleMirror(inter);
+
+            return Ll + Lm;
+        }
+
+        private Vector3f DoSampleMirror(Intersection inter)
+        {
+            // 对场景中的镜面进行采样，interMirror镜面位置；pdfMirror镜面密度函数
+            SampleMirror(inter, out var interMirror, out var pdfMirror);
+
+            // 交点法线nP
+            var nP = inter.Normal;
+            // 镜面采样点法线mL
+            var nM = interMirror.Normal;
+
+            var pMirror = interMirror.Coords;
+            var p = inter.Coords;
+            var distanceP2M = (pMirror - p);
+            // 交点到镜面的方向的单位向量 dirP2L
+            var dirP2M = Vector3f.Normalize(distanceP2M);
+
+            // 计算交点法线与光源方向的点积
+            var cosTheta = Vector3f.Dot(nP, dirP2M);
+            if (cosTheta <= 0)
             {
-                // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
-                SampleLight(out var interLight, out var pdfLight);
-
-                // 交点法线nP
-                var nP = inter.Normal;
-                // 光源采样点法线nL
-                var nL = interLight.Normal;
-
-                var pLight = interLight.Coords;
-                var p = inter.Coords;
-                var distanceP2L = (pLight - p);
-                // 交点到光源的方向的单位向量 dirP2L
-                var dirP2L = Vector3f.Normalize(distanceP2L);
-
-                // 计算交点法线与光源方向的点积
-                var cosTheta = Vector3f.Dot(nP, dirP2L);
-                if (cosTheta < 0)
-                {
-                    // 如果点积小于0，说明光源在交点的背面，返回零向量
-                    return Vector3f.Zero;
-                }
-                // 计算光源法线与光源方向的点积
-                var cosThetaL = Vector3f.Dot(nL, -dirP2L);
-                if (cosThetaL < 0)
-                {
-                    // 如果点积小于0，说明光源在交点的背面，返回零向量
-                    return Vector3f.Zero;
-                }
-
-                // 判断采样点是否被遮挡
-                if (IsShadow(inter, interLight))
-                {
-                    return Vector3f.Zero;
-                }
-                // 如果没有被遮挡，计算直接光照
-
-                var emitLight = interLight.Emit;
-                var BRDF = inter.Material.Eval(iw, dirP2L, nP);
-
-                // 光照强度 = 光源强度 * BRDF * dot(nP,dirP2L) * dot(nL,-dirP2L) / 交点到光源距离的平方 / pdfLight
-                // 返回直接光照
-                return emitLight * BRDF * cosTheta * cosThetaL / distanceP2L.LengthSquared() / pdfLight;
+                // 如果点积小于0，说明光源在交点的背面，返回零向量
+                return Vector3f.Zero;
+            }
+            // 计算光源法线与光源方向的点积
+            var cosThetaL = Vector3f.Dot(nM, -dirP2M);
+            if (cosThetaL <= 0)
+            {
+                // 如果点积小于0，说明光源在交点的背面，返回零向量
+                return Vector3f.Zero;
             }
 
+            // 判断采样点是否被遮挡
+            if (IsShadow(inter, interMirror))
+            {
+                return Vector3f.Zero;
+            }
+
+            var reflect = Vector3f.Reflect(dirP2M, nM); // 生成反射角
+            var rayReflect = new Ray(pMirror, reflect); // 生成出射光线（间接光照光线）
+                                                        //反射光线与其他物体相交
+                                                        //是否命中光源
+            var hitInter = Intersect(rayReflect);
+            // 如果与光源相交，返回光源的颜色
+            if (hitInter.Happened && hitInter.Material!.HasEmission())
+            {
+                return hitInter.Material.Emission * cosTheta * cosThetaL / distanceP2M.LengthSquared() / pdfMirror;
+            }
+            return Vector3f.Zero;
+        }
+
+        private Vector3f DoSampleLight(Intersection inter, Vector3f iw)
+        {
+            // 对场景光源进行采样，interLight光源位置；pdfLight光源密度函数
+            SampleLight(out var interLight, out var pdfLight);
+
+            // 交点法线nP
+            var nP = inter.Normal;
+            // 光源采样点法线nL
+            var nL = interLight.Normal;
+
+            var pLight = interLight.Coords;
+            var p = inter.Coords;
+            var distanceP2L = (pLight - p);
+            // 交点到光源的方向的单位向量 dirP2L
+            var dirP2L = Vector3f.Normalize(distanceP2L);
+
+            // 计算交点法线与光源方向的点积
+            var cosTheta = Vector3f.Dot(nP, dirP2L);
+            if (cosTheta <= 0)
+            {
+                // 如果点积小于0，说明光源在交点的背面，返回零向量
+                return Vector3f.Zero;
+            }
+            // 计算光源法线与光源方向的点积
+            var cosThetaL = Vector3f.Dot(nL, -dirP2L);
+            if (cosThetaL <= 0)
+            {
+                // 如果点积小于0，说明光源在交点的背面，返回零向量
+                return Vector3f.Zero;
+            }
+
+            // 判断采样点是否被遮挡
+            if (IsShadow(inter, interLight))
+            {
+                return Vector3f.Zero;
+            }
+            // 如果没有被遮挡，计算直接光照
+
+            var emitLight = interLight.Emit;
+            var BRDF = inter.Material!.Eval(iw, dirP2L, nP);
+
+            // 光照强度 = 光源强度 * BRDF * dot(nP,dirP2L) * dot(nL,-dirP2L) / 交点到光源距离的平方 / pdfLight
+            // 返回直接光照
+            return emitLight * BRDF * cosTheta * cosThetaL / distanceP2L.LengthSquared() / pdfLight;
         }
 
         private bool IsShadow(Intersection inter, Intersection interLight)
